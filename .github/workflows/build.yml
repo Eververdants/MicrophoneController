@@ -6,6 +6,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   pyinstaller:
     strategy:
@@ -40,11 +43,42 @@ jobs:
         run: |
           pyinstaller --noconsole --onefile --name MicrophoneController qt_app.py
 
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $zip = "MicrophoneController-Windows.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "dist\MicrophoneController.exe" -DestinationPath $zip -Force
+
+      - name: Package (macOS/Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          rm -f "MicrophoneController-${RUNNER_OS}.zip"
+          zip -j "MicrophoneController-${RUNNER_OS}.zip" "dist/MicrophoneController"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: MicrophoneController-${{ runner.os }}
           path: |
-            dist/**
-            build/**
-            *.spec
+            MicrophoneController-${{ runner.os }}.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: pyinstaller
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: |
+            artifacts/**/MicrophoneController-*.zip

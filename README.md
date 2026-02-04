@@ -1,12 +1,19 @@
 # MicrophoneController
 
-A simple tool by DeepSeek to toggle microphone mute/unmute with one click.
+A simple tool by Eververdants to toggle microphone mute/unmute with one click.
 
 ## Features
 
 - One-click to mute or unmute the microphone  
 - Lightweight and easy to use  
 - Cross-platform (Windows, macOS, Linux)  
+
+## PyQt5 Version
+
+Run:
+
+1. Install dependencies from `requirements.txt`
+2. Run `python qt_app.py`
 
 ## Usage
 
@@ -15,4 +22,4 @@ A simple tool by DeepSeek to toggle microphone mute/unmute with one click.
 
 ## License
 
-MIT © [llzgdc](https://github.com/llzgdc)
+MIT © Eververdants

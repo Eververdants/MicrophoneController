@@ -13,14 +13,29 @@ from config_store import load_config, save_config
 from mic_service import MicrophoneService
 
 
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
+FRONTEND_DIR = _resource_path("frontend")
 INDEX_HTML = str(Path(FRONTEND_DIR, "index.html").as_uri())
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ICON_PATH = os.path.join(PROJECT_DIR, "icon.png")
+
+
+def _resource_path(relative_path: str) -> str:
+    try:
+        base = sys._MEIPASS
+    except AttributeError:
+        base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, relative_path)
+
+
+def _project_resource_path(relative_path: str) -> str:
+    try:
+        base = sys._MEIPASS
+    except AttributeError:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, relative_path)
 
 
 def _get_tray_image() -> Image.Image:
-    img = Image.open(ICON_PATH).convert("RGBA")
+    img = Image.open(_project_resource_path("icon.png")).convert("RGBA")
     img.thumbnail((64, 64), Image.LANCZOS)
     return img
 

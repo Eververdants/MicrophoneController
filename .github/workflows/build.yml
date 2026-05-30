@@ -44,8 +44,17 @@ jobs:
           pip install -r app/requirements.txt
 
       - name: Build with PyInstaller
+        shell: bash
         run: |
-          pyinstaller --noconsole --onefile --name MicrophoneController app/app.py
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            SEP=";"
+          else
+            SEP=":"
+          fi
+          pyinstaller --noconsole --onefile --name MicrophoneController \
+            --add-data "app/frontend${SEP}frontend" \
+            --add-data "icon.png${SEP}." \
+            app/app.py
 
       - name: Package (Windows)
         if: runner.os == 'Windows'

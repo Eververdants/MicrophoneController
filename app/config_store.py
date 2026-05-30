@@ -14,6 +14,8 @@ class AppConfig:
     selected_device_id: Optional[str] = None
     last_volume_percent: int = 100
     volume_zero_mutes: bool = False
+    normalize_volume: bool = False
+    reference_volume_percent: int = 50
 
 
 def _config_dir() -> str:
@@ -55,6 +57,10 @@ def load_config() -> AppConfig:
             cfg.last_volume_percent = max(0, min(100, int(data["last_volume_percent"])))
         if isinstance(data.get("volume_zero_mutes"), bool):
             cfg.volume_zero_mutes = data["volume_zero_mutes"]
+        if isinstance(data.get("normalize_volume"), bool):
+            cfg.normalize_volume = data["normalize_volume"]
+        if isinstance(data.get("reference_volume_percent"), int):
+            cfg.reference_volume_percent = max(0, min(100, int(data["reference_volume_percent"])))
     return cfg
 
 

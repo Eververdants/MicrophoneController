@@ -1,3 +1,4 @@
+import math
 import threading
 import time
 from ctypes import POINTER, cast
@@ -138,6 +139,36 @@ class MicrophoneService:
             endpoint.SetMasterVolumeLevelScalar(percent / 100.0, None)
         except Exception:
             return
+
+    def get_volume_dB(self) -> float:
+        with self._lock:
+            endpoint = self._endpoint
+        try:
+            return float(endpoint.GetMasterVolumeLevel())
+        except Exception:
+            return -96.0
+
+    def set_volume_dB(self, dB: float) -> None:
+        with self._lock:
+            endpoint = self._endpoint
+        try:
+            endpoint.SetMasterVolumeLevel(max(-96.0, min(0.0, dB)), None)
+        except Exception:
+            return
+
+    @staticmethod
+    def percent_to_dB(percent: int) -> float:
+        if percent <= 0:
+            return -96.0
+        scalar = max(0.001, percent / 100.0)
+        return round(20.0 * math.log10(scalar), 1)
+
+    @staticmethod
+    def dB_to_percent(dB: float) -> int:
+        if dB <= -96.0:
+            return 0
+        scalar = 10 ** (dB / 20.0)
+        return max(0, min(100, int(round(scalar * 100))))
 
     def add_status_listener(self, listener):
         with self._lock:

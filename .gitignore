@@ -1,10 +1,45 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
+*.pyo
+*.egg-info/
 .venv/
 venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+pip-wheel-metadata/
 
 build/
 dist/
 *.spec
+
+# Node
+node_modules/
+website/dist/
+website/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+*.lnk
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Internal docs (planning / specs — not for public)
+docs/

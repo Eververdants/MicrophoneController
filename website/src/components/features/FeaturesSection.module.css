@@ -1,0 +1,107 @@
+.section {
+  padding: 100px 24px 120px;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  position: relative;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 6vw, 72px);
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.goldBar {
+  width: 60px;
+  height: 3px;
+  background: var(--accent-gold);
+  margin: 16px auto 0;
+  border-radius: 2px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+.card {
+  padding: 36px 32px;
+  background: var(--bg-card);
+  position: relative;
+  transition: all var(--transition-base);
+  cursor: default;
+}
+
+.card:hover {
+  background: #1e1e1e;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--accent-gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--transition-base);
+}
+
+.card:hover::before {
+  transform: scaleX(1);
+}
+
+.cardLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.icon {
+  width: 28px;
+  height: 28px;
+  color: var(--accent-gold);
+  margin-bottom: 16px;
+}
+
+.cardTitle {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.cardDesc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  font-family: var(--font-mono);
+}

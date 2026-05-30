@@ -1,0 +1,107 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--navbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: background var(--transition-base);
+  padding: 0 24px;
+  border-bottom: 1px solid transparent;
+}
+
+.navbar.scrolled {
+  background: rgba(13, 13, 13, 0.92);
+  border-bottom-color: var(--border);
+}
+
+.inner {
+  width: 100%;
+  max-width: var(--max-width);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+}
+
+.logoDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
+  background: var(--accent-gold);
+  transform: rotate(45deg);
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  list-style: none;
+}
+
+.link {
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.link:hover {
+  color: var(--text-primary);
+}
+
+.downloadBtn {
+  padding: 10px 24px;
+  background: transparent;
+  color: var(--accent-gold);
+  border: 1px solid var(--accent-gold);
+  border-radius: 0;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.downloadBtn:hover {
+  background: var(--accent-gold);
+  color: var(--bg-primary);
+}
+
+.langBtn {
+  padding: 4px 12px;
+  font-size: 11px;
+  color: var(--accent-gold);
+  background: transparent;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all var(--transition-fast);
+}
+
+.langBtn:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}

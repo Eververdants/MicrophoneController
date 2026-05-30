@@ -13,11 +13,6 @@ from config_store import load_config, save_config
 from mic_service import MicrophoneService
 
 
-FRONTEND_DIR = _resource_path("frontend")
-INDEX_HTML = str(Path(FRONTEND_DIR, "index.html").as_uri())
-PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
 def _resource_path(relative_path: str) -> str:
     try:
         base = sys._MEIPASS
@@ -32,6 +27,10 @@ def _project_resource_path(relative_path: str) -> str:
     except AttributeError:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, relative_path)
+
+
+FRONTEND_DIR = _resource_path("frontend")
+INDEX_HTML = str(Path(FRONTEND_DIR, "index.html").as_uri())
 
 
 def _get_tray_image() -> Image.Image:

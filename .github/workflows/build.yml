@@ -54,6 +54,7 @@ jobs:
           pyinstaller --noconsole --onefile --name MicrophoneController \
             --add-data "app/frontend${SEP}frontend" \
             --add-data "icon.png${SEP}." \
+            --icon "icon.png" \
             app/app.py
 
       - name: Package (Windows)

@@ -1,17 +1,10 @@
+import { invoke as tauriInvoke } from '@tauri-apps/api/core'
+import { listen as tauriListen } from '@tauri-apps/api/event'
 import { useEffect, useRef } from 'react'
 
-interface TauriLike {
-  invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>
-  listen: <T>(event: string, handler: (payload: { payload: T }) => void) => Promise<() => void>
-}
-
-function getTauri(): TauriLike | null {
-  const w = window as unknown as { __TAURI_INTERNALS__?: TauriLike }
-  return w.__TAURI_INTERNALS__ ?? null
-}
-
-export function isTauri(): boolean {
-  return getTauri() !== null
+// __TAURI_INTERNALS__ exists only inside the Tauri webview.
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
 
 export function useTauriEvent<T>(event: string, handler: (payload: T) => void) {
@@ -21,26 +14,25 @@ export function useTauriEvent<T>(event: string, handler: (payload: T) => void) {
   })
 
   useEffect(() => {
-    const tauri = getTauri()
-    if (!tauri) return
-    let cancel: (() => void) | undefined
+    if (!isTauri()) return
     let cancelled = false
-    tauri
-      .listen<T>(event, (e) => {
-        if (!cancelled) handlerRef.current(e.payload)
+    let unlisten: (() => void) | undefined
+    tauriListen<T>(event, (e) => {
+      if (!cancelled) handlerRef.current(e.payload)
+    })
+      .then((u) => {
+        if (cancelled) u()
+        else unlisten = u
       })
-      .then((unlisten) => {
-        cancel = unlisten
-      })
+      .catch((err) => console.error(`listen ${event} failed:`, err))
     return () => {
       cancelled = true
-      cancel?.()
+      unlisten?.()
     }
   }, [event])
 }
 
 export async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  const tauri = getTauri()
-  if (!tauri) throw new Error('Tauri runtime not available')
-  return (await tauri.invoke(command, args)) as T
+  if (!isTauri()) throw new Error('Tauri runtime not available')
+  return tauriInvoke<T>(command, args)
 }

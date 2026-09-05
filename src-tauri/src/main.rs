@@ -8,8 +8,6 @@ mod hotkey;
 mod tray;
 
 fn main() {
-    env_logger::init();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}))
         .plugin(tauri_plugin_shell::init())

@@ -40,17 +40,17 @@ impl AudioController {
 pub mod win {
     use super::*;
     use std::cell::RefCell;
-    use windows::Win32::Foundation::BOOL;
+    use windows::Win32::Foundation::PROPERTYKEY;
     use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
     use windows::Win32::Media::Audio::{
-        eCapture, eConsole, IMMDevice, IMMDeviceCollection, IMMDeviceEnumerator,
-        DEVICE_STATE_ACTIVE,
+        eCapture, eConsole, IMMDevice, IMMDeviceCollection, MMDeviceEnumerator,
+        IMMDeviceEnumerator, DEVICE_STATE_ACTIVE,
     };
     use windows::Win32::System::Com::{
-        CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
+        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
+        STGM_READ,
     };
-    use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
-    use windows::core::{Interface, GUID};
+    use windows::core::GUID;
 
     thread_local! {
         static COM_INIT: RefCell<bool> = const { RefCell::new(false) };
@@ -79,7 +79,7 @@ pub mod win {
         ensure_com();
         unsafe {
             let enumerator: IMMDeviceEnumerator =
-                CoCreateInstance(&IMMDeviceEnumerator, None, CLSCTX_ALL)
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
                     .map_err(|e| format!("CoCreateInstance(IMMDeviceEnumerator): {e}"))?;
 
             let collection: IMMDeviceCollection = enumerator
@@ -104,11 +104,12 @@ pub mod win {
 
     fn read_device_info(dev: &IMMDevice) -> Option<DeviceInfo> {
         unsafe {
-            let id_bstr = dev.GetId().ok()?;
-            let id = id_bstr.to_string().ok()?;
-            let store = dev.OpenPropertyStore(0).ok()?; // 0 = STGM_READ
+            let id_pwstr = dev.GetId().ok()?;
+            let id = id_pwstr.to_string().ok()?;
+            CoTaskMemFree(Some(id_pwstr.as_ptr().cast()));
+            let store = dev.OpenPropertyStore(STGM_READ).ok()?;
             let value = store.GetValue(&PKEY_DEVICE_FRIENDLY_NAME).ok()?;
-            let name = value.to_string().ok()?;
+            let name = value.to_string();
             Some(DeviceInfo { id, name })
         }
     }
@@ -117,7 +118,7 @@ pub mod win {
         ensure_com();
         unsafe {
             let enumerator: IMMDeviceEnumerator =
-                CoCreateInstance(&IMMDeviceEnumerator, None, CLSCTX_ALL)
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
                     .map_err(|e| format!("CoCreateInstance: {e}"))?;
 
             let dev = enumerator
@@ -132,15 +133,11 @@ pub mod win {
         }
     }
 
-    fn bool_to_rust(b: BOOL) -> bool {
-        b.0 != 0
-    }
-
     pub fn is_muted() -> Result<bool, String> {
         let ep = get_default_endpoint()?;
         unsafe {
             ep.GetMute()
-                .map(bool_to_rust)
+                .map(bool::from)
                 .map_err(|e| format!("GetMute: {e}"))
         }
     }
@@ -148,7 +145,7 @@ pub mod win {
     pub fn set_mute(muted: bool) -> Result<(), String> {
         let ep = get_default_endpoint()?;
         unsafe {
-            ep.SetMute(muted, None)
+            ep.SetMute(muted, std::ptr::null())
                 .map_err(|e| format!("SetMute: {e}"))
         }
     }
@@ -172,6 +169,7 @@ pub mod win {
         let ep = get_default_endpoint()?;
         unsafe {
             ep.GetMasterVolumeLevel()
+                .map(f64::from)
                 .map_err(|e| format!("GetMasterVolumeLevel: {e}"))
         }
     }
@@ -180,7 +178,7 @@ pub mod win {
         let clamped = (percent.clamp(0, 100) as f32) / 100.0;
         let ep = get_default_endpoint()?;
         unsafe {
-            ep.SetMasterVolumeLevelScalar(clamped, None)
+            ep.SetMasterVolumeLevelScalar(clamped, std::ptr::null())
                 .map_err(|e| format!("SetMasterVolumeLevelScalar: {e}"))
         }
     }

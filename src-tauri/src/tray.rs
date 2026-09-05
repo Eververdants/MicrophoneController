@@ -17,7 +17,11 @@ pub fn build(app: &AppHandle) -> Result<(), String> {
 
     TrayIconBuilder::with_id("main-tray")
         .tooltip("MicrophoneController")
-        .icon(app.default_tray_icon().ok_or("no default tray icon")?.clone())
+        .icon(
+            app.default_window_icon()
+                .ok_or("no default window icon")?
+                .clone(),
+        )
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {

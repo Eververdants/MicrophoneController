@@ -1,0 +1,39 @@
+/* Light/dark theme via data-theme attribute.
+   Existing dark values stay as defaults; light theme overrides below. */
+
+:root,
+[data-theme='dark'] {
+  --bg-primary: #0d0d0d;
+  --bg-surface: #161616;
+  --bg-surface-2: #1e1e1e;
+  --bg-card: #1a1a1a;
+  --accent-gold: #c8a84e;
+  --accent-gold-hover: #dbb95f;
+  --accent-orange: #f97316;
+  --accent-green: #22c55e;
+  --accent-red: #ef4444;
+  --text-primary: #ece8e1;
+  --text-secondary: #8a8580;
+  --text-muted: #5a5550;
+  --border: #2a2a2a;
+  --border-light: #3a3a3a;
+  --ring: #c8a84e;
+}
+
+[data-theme='light'] {
+  --bg-primary: #f5f4f0;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #ecebe6;
+  --bg-card: #ffffff;
+  --accent-gold: #9a7b24;
+  --accent-gold-hover: #b8942f;
+  --accent-orange: #d97706;
+  --accent-green: #16a34a;
+  --accent-red: #dc2626;
+  --text-primary: #1a1814;
+  --text-secondary: #5c5750;
+  --text-muted: #8a8580;
+  --border: #dcd9d2;
+  --border-light: #e8e5de;
+  --ring: #9a7b24;
+}

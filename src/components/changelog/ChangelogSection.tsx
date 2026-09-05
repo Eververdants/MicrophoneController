@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { useLanguage } from '../../i18n/LanguageContext'
 import styles from './ChangelogSection.module.css'
 
@@ -7,11 +7,18 @@ export default function ChangelogSection() {
 
   const entries = [
     {
+      versionKey: 'changelog.v4.title',
+      dateKey: 'changelog.v4.date',
+      itemPrefix: 'changelog.v4.item',
+      itemCount: 8,
+      isLatest: true,
+    },
+    {
       versionKey: 'changelog.v3.title',
       dateKey: 'changelog.v3.date',
       itemPrefix: 'changelog.v3.item',
       itemCount: 8,
-      isLatest: true,
+      isLatest: false,
     },
     {
       versionKey: 'changelog.v2_1.title',

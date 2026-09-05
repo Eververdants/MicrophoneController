@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { useLanguage } from '../../i18n/LanguageContext'
+import { toggleTheme } from '../../styles/initTheme'
 import styles from './Navbar.module.css'
 
 const navKeyMap: Record<string, string> = {
@@ -25,7 +26,7 @@ export default function Navbar() {
     document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const toggleLang = () => setLang(lang === 'en' ? 'zh-CN' : 'en')
+  const handleToggleLang = () => setLang(lang === 'en' ? 'zh-CN' : 'en')
 
   return (
     <motion.nav
@@ -48,8 +49,17 @@ export default function Navbar() {
             </li>
           ))}
           <li>
-            <button className={styles.langBtn} onClick={toggleLang}>
+            <button className={styles.langBtn} onClick={handleToggleLang}>
               {lang === 'en' ? '中文' : 'EN'}
+            </button>
+          </li>
+          <li>
+            <button
+              className={styles.themeBtn}
+              onClick={() => toggleTheme()}
+              aria-label="toggle theme"
+            >
+              <ThemeIcon />
             </button>
           </li>
         </ul>
@@ -62,5 +72,14 @@ export default function Navbar() {
         </a>
       </div>
     </motion.nav>
+  )
+}
+
+function ThemeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
   )
 }

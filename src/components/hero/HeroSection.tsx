@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, useSpring, useTransform } from 'motion/react'
 import { useLanguage } from '../../i18n/LanguageContext'
 import styles from './HeroSection.module.css'
 
@@ -18,10 +18,22 @@ const fadeUp = {
 export default function HeroSection() {
   const { t } = useLanguage()
 
+  const spring = useSpring(1, { stiffness: 40, damping: 18 })
+  const ringA = useTransform(spring, [0.8, 1.2], [0.92, 1.0])
+  const ringB = useTransform(spring, [0.8, 1.2], [0.92, 1.04])
+  const ringC = useTransform(spring, [0.8, 1.2], [0.92, 1.1])
+
   return (
     <section className={styles.hero}>
       <div className={styles.glow} />
       <div className={styles.decorativeLine} />
+
+      <div className={styles.concentric} aria-hidden>
+        <motion.span className={styles.ring} style={{ scale: ringA }} />
+        <motion.span className={styles.ring} style={{ scale: ringB }} />
+        <motion.span className={styles.ring} style={{ scale: ringC }} />
+      </div>
+
       <motion.div className={styles.content} variants={stagger} initial="hidden" animate="visible">
         <motion.span className={styles.badgeTag} variants={fadeUp}>
           {t('hero.badge')}

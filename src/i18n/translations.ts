@@ -11,11 +11,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     'nav.download': 'Download',
 
     // Hero
-    'hero.badge': 'Desktop Audio Utility',
+    'hero.badge': 'Desktop Audio Utility · Tauri v2',
     'hero.title1': 'MIC',
     'hero.title2': 'CONTROLLER',
-    'hero.subtitle': 'One-click microphone control. Mute, unmute, and manage your audio devices with keyboard shortcuts from your system tray.',
-    'hero.download': 'Download v3.0',
+    'hero.subtitle': 'One-click microphone control. Mute, unmute, and manage your audio devices with keyboard shortcuts from your system tray. Built with Tauri — tiny, fast, no bloat.',
+    'hero.download': 'Download v4.0',
     'hero.learnMore': 'Learn More',
 
     // Features
@@ -58,6 +58,16 @@ export const translations: Record<Lang, Record<string, string>> = {
     // Changelog
     'changelog.tag': '// Release Notes',
     'changelog.title': 'Changelog',
+    'changelog.v4.title': 'v4.0.0 — Tauri v2 Rewrite',
+    'changelog.v4.date': '2026-09-05',
+    'changelog.v4.item1': 'Complete rewrite from Python + pywebview to Tauri v2 (Rust backend + React frontend)',
+    'changelog.v4.item2': 'Windows Core Audio via Rust COM — no third-party .exe dependencies',
+    'changelog.v4.item3': 'Concentric-circle micro-interaction UI with Motion spring animations',
+    'changelog.v4.item4': 'Light + dark themes with instant, no-flash toggle',
+    'changelog.v4.item5': 'Tailwind CSS v4 styling, system tray, global hotkey, JSON config persistence',
+    'changelog.v4.item6': 'Cross-platform builds (Windows / macOS / Linux) via GitHub Actions',
+    'changelog.v4.item7': 'Product landing page upgraded to Tailwind + Motion + light/dark',
+    'changelog.v4.item8': 'Single self-contained binary — zero external runtime deps',
     'changelog.v3.title': 'v3.0.0 — Native WebView Rewrite',
     'changelog.v3.date': '2026-05-30',
     'changelog.v3.item1': 'Complete rewrite from PyQt5 to pywebview for native WebView performance',
@@ -93,7 +103,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'changelog.v1.item5': 'Volume slider control',
 
     // Footer
-    'footer.desc': 'A lightweight desktop application for controlling your microphone with ease. Open source and built with Python.',
+    'footer.desc': 'A lightweight cross-platform desktop tool for controlling your microphone. Built with Tauri v2 + React — open source, zero bloat.',
     'footer.navTitle': 'Navigation',
     'footer.linkTitle': 'Links',
     'footer.copyright': '\u00A9 {year} Eververdants',
@@ -110,11 +120,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     'nav.download': '下载',
 
     // Hero
-    'hero.badge': '桌面音频工具',
+    'hero.badge': '桌面音频工具 · Tauri v2',
     'hero.title1': 'MIC',
     'hero.title2': 'CONTROLLER',
-    'hero.subtitle': '一键控制麦克风。通过快捷键和系统托盘，轻松静音、开启和管理你的音频设备。',
-    'hero.download': '下载 v3.0',
+    'hero.subtitle': '一键控制麦克风。通过快捷键和系统托盘，轻松静音、开启和管理你的音频设备。基于 Tauri 构建 — 小巧、快速、零冗余。',
+    'hero.download': '下载 v4.0',
     'hero.learnMore': '了解更多',
 
     // Features
@@ -157,6 +167,16 @@ export const translations: Record<Lang, Record<string, string>> = {
     // Changelog
     'changelog.tag': '// 更新日志',
     'changelog.title': '版本历史',
+    'changelog.v4.title': 'v4.0.0 — Tauri v2 重写',
+    'changelog.v4.date': '2026-09-05',
+    'changelog.v4.item1': '从 Python + pywebview 完全重写为 Tauri v2（Rust 后端 + React 前端）',
+    'changelog.v4.item2': 'Windows Core Audio 通过 Rust COM 调用 — 无第三方 .exe 依赖',
+    'changelog.v4.item3': '同心圆微交互 UI，Motion 弹簧动画驱动',
+    'changelog.v4.item4': '浅色 / 深色双主题，即时切换无闪烁',
+    'changelog.v4.item5': 'Tailwind CSS v4 样式、系统托盘、全局快捷键、JSON 配置持久化',
+    'changelog.v4.item6': 'GitHub Actions 自动化三平台构建（Windows / macOS / Linux）',
+    'changelog.v4.item7': '产品官网升级至 Tailwind + Motion + 双主题',
+    'changelog.v4.item8': '单文件自包含二进制 — 零外部运行时依赖',
     'changelog.v3.title': 'v3.0.0 — 原生 WebView 重写',
     'changelog.v3.date': '2026-05-30',
     'changelog.v3.item1': '从 PyQt5 完全重写为 pywebview，获得原生 WebView 性能',
@@ -192,7 +212,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'changelog.v1.item5': '音量滑块控制',
 
     // Footer
-    'footer.desc': '一款轻量级的桌面应用，轻松控制你的麦克风。开源，基于 Python 构建。',
+    'footer.desc': '一款轻量级跨平台桌面工具，轻松控制你的麦克风。基于 Tauri v2 + React 构建 — 开源，零冗余。',
     'footer.navTitle': '导航',
     'footer.linkTitle': '链接',
     'footer.copyright': '\u00A9 {year} Eververdants',

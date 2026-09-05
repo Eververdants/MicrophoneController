@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { useLanguage } from '../../i18n/LanguageContext'
 import styles from './TechStackSection.module.css'
 
@@ -15,77 +15,22 @@ const svgProps = {
 
 const techs = [
   {
-    name: 'Python',
+    name: 'Tauri v2',
     icon: (
       <svg {...svgProps}>
-        <path d="M12 2C8.13 2 5 5.13 5 9v6c0 3.87 3.13 7 7 7s7-3.13 7-7V9c0-3.87-3.13-7-7-7z" />
-        <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
-        <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
+        <rect x="3" y="3" width="18" height="18" rx="4" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
       </svg>
     ),
   },
   {
-    name: 'pywebview',
+    name: 'Rust',
     icon: (
       <svg {...svgProps}>
-        <rect x="2" y="4" width="20" height="14" rx="2" ry="2" />
-        <circle cx="8" cy="8" r="1" fill="currentColor" stroke="none" />
-        <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none" />
-        <circle cx="16" cy="8" r="1" fill="currentColor" stroke="none" />
-        <line x1="4" y1="18" x2="20" y2="18" />
-        <path d="M8 18v2" />
-        <path d="M16 18v2" />
-        <path d="M10 20h4" />
-      </svg>
-    ),
-  },
-  {
-    name: 'PyCaw',
-    icon: (
-      <svg {...svgProps}>
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-      </svg>
-    ),
-  },
-  {
-    name: 'keyboard',
-    icon: (
-      <svg {...svgProps}>
-        <rect x="2" y="4" width="20" height="16" rx="2" />
-        <line x1="6" y1="8" x2="6" y2="8.01" />
-        <line x1="10" y1="8" x2="10" y2="8.01" />
-        <line x1="14" y1="8" x2="14" y2="8.01" />
-        <line x1="18" y1="8" x2="18" y2="8.01" />
-        <line x1="6" y1="12" x2="6" y2="12.01" />
-        <line x1="10" y1="12" x2="10" y2="12.01" />
-        <line x1="14" y1="12" x2="14" y2="12.01" />
-        <line x1="18" y1="12" x2="18" y2="12.01" />
-        <line x1="8" y1="16" x2="16" y2="16" />
-      </svg>
-    ),
-  },
-  {
-    name: 'comtypes',
-    icon: (
-      <svg {...svgProps}>
-        <path d="M4 4h6v16H4z" />
-        <path d="M14 8h6v12h-6z" />
-        <circle cx="7" cy="20" r="2" />
-        <circle cx="17" cy="20" r="2" />
-        <line x1="7" y1="20" x2="7" y2="16" />
-        <line x1="17" y1="20" x2="17" y2="16" />
-      </svg>
-    ),
-  },
-  {
-    name: 'PyInstaller',
-    icon: (
-      <svg {...svgProps}>
-        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-        <polyline points="3.29 7 12 12 20.71 7" />
-        <line x1="12" y1="22" x2="12" y2="12" />
+        <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" />
+        <path d="M12 6v12M6 12h12" />
+        <path d="M8 8l8 8M16 8l-8 8" />
       </svg>
     ),
   },
@@ -100,15 +45,49 @@ const techs = [
     ),
   },
   {
-    name: 'Pystray',
+    name: 'React 19',
     icon: (
       <svg {...svgProps}>
-        <rect x="2" y="2" width="20" height="14" rx="2" />
-        <line x1="8" y1="16" x2="16" y2="16" />
-        <line x1="12" y1="14" x2="12" y2="20" />
-        <line x1="8" y1="20" x2="16" y2="20" />
-        <circle cx="12" cy="7" r="2" fill="currentColor" stroke="none" />
-        <rect x="7" y="10" width="10" height="1" rx="0.5" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12" r="2" />
+        <ellipse cx="12" cy="12" rx="10" ry="4" />
+        <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" />
+        <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Tailwind v4',
+    icon: (
+      <svg {...svgProps}>
+        <path d="M6 9c2-4 6-4 8 0s4 4 6 0" />
+        <path d="M6 15c2-4 6-4 8 0s4 4 6 0" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Motion',
+    icon: (
+      <svg {...svgProps}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 3v9l6 3" />
+      </svg>
+    ),
+  },
+  {
+    name: 'TypeScript',
+    icon: (
+      <svg {...svgProps}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M10 8v8M14 8v8M10 12h4" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Vite',
+    icon: (
+      <svg {...svgProps}>
+        <polygon points="12 2 22 22 2 22" />
+        <polygon points="12 10 17 22 7 22" fill="currentColor" stroke="none" />
       </svg>
     ),
   },

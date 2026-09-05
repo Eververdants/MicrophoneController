@@ -1,5 +1,5 @@
 use crate::audio::{win as audio_win, AudioController, DeviceInfo};
-use crate::config::AppConfig;
+use crate::config::ConfigState;
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -26,10 +26,10 @@ pub mod audio {
 
     #[tauri::command]
     pub fn get_initial_state(
-        app: AppHandle,
         audio: State<'_, AudioController>,
+        config: State<'_, ConfigState>,
     ) -> Result<InitialState, String> {
-        let cfg = crate::config::load_config(&app)?;
+        let cfg = config.get()?;
 
         let platform_supported = cfg!(windows);
 
@@ -54,13 +54,18 @@ pub mod audio {
             inner.last_known_volume_percent = volume_percent;
         }
 
+        let selected_device_name = devices
+            .iter()
+            .find(|d| Some(&d.id) == cfg.selected_device_id.as_ref())
+            .map(|d| d.name.clone());
+
         Ok(InitialState {
             muted,
             volume_percent,
-            volume_db: volume_db,
+            volume_db,
             devices,
             selected_device_id: cfg.selected_device_id,
-            selected_device_name: None,
+            selected_device_name,
             hotkey: cfg.hotkey,
             language: cfg.language,
             start_minimized_to_tray: cfg.start_minimized_to_tray,
@@ -106,16 +111,19 @@ pub mod audio {
         app: AppHandle,
         percent: i64,
         audio: State<'_, AudioController>,
+        config: State<'_, ConfigState>,
     ) -> Result<(), String> {
         let clamped = percent.clamp(0, 100);
         audio_win::set_volume_percent(clamped)?;
 
-        let mut cfg = crate::config::load_config(&app)?;
-        cfg.last_volume_percent = clamped;
-        if cfg.normalize_volume {
-            cfg.reference_volume_percent = clamped;
-        }
-        crate::config::save_config(&app, &cfg)?;
+        // Cache-only: last volume is persisted on app exit, not on every
+        // slider tick.
+        let cfg = config.mutate(|cfg| {
+            cfg.last_volume_percent = clamped;
+            if cfg.normalize_volume {
+                cfg.reference_volume_percent = clamped;
+            }
+        })?;
 
         if cfg.volume_zero_mutes {
             if clamped <= 0 && !audio_win::is_muted().unwrap_or(false) {
@@ -144,11 +152,10 @@ pub mod audio {
     pub fn select_device(
         app: AppHandle,
         device_id: Option<String>,
+        config: State<'_, ConfigState>,
     ) -> Result<(), String> {
         audio_win::select_device(device_id.as_deref())?;
-        let mut cfg = crate::config::load_config(&app)?;
-        cfg.selected_device_id = device_id;
-        crate::config::save_config(&app, &cfg)?;
+        config.update(&app, |cfg| cfg.selected_device_id = device_id)?;
         Ok(())
     }
 }
@@ -156,44 +163,66 @@ pub mod audio {
 pub mod config {
     use super::*;
 
-    fn update(app: &AppHandle, f: impl FnOnce(&mut AppConfig)) -> Result<(), String> {
-        let mut cfg = crate::config::load_config(app)?;
-        f(&mut cfg);
-        crate::config::save_config(app, &cfg)
+    #[tauri::command]
+    pub fn set_hotkey(
+        app: AppHandle,
+        hotkey: String,
+        config: State<'_, ConfigState>,
+    ) -> Result<(), String> {
+        config.update(&app, |c| c.hotkey = hotkey)
     }
 
     #[tauri::command]
-    pub fn set_hotkey(app: AppHandle, hotkey: String) -> Result<(), String> {
-        update(&app, |c| c.hotkey = hotkey)
+    pub fn set_language(
+        app: AppHandle,
+        language: String,
+        config: State<'_, ConfigState>,
+    ) -> Result<(), String> {
+        config.update(&app, |c| c.language = language)
     }
 
     #[tauri::command]
-    pub fn set_language(app: AppHandle, language: String) -> Result<(), String> {
-        update(&app, |c| c.language = language)
+    pub fn set_start_minimized(
+        app: AppHandle,
+        value: bool,
+        config: State<'_, ConfigState>,
+    ) -> Result<(), String> {
+        config.update(&app, |c| c.start_minimized_to_tray = value)
     }
 
     #[tauri::command]
-    pub fn set_start_minimized(app: AppHandle, value: bool) -> Result<(), String> {
-        update(&app, |c| c.start_minimized_to_tray = value)
+    pub fn set_close_to_tray(
+        app: AppHandle,
+        value: bool,
+        config: State<'_, ConfigState>,
+    ) -> Result<(), String> {
+        config.update(&app, |c| c.minimize_to_tray_on_close = value)
     }
 
     #[tauri::command]
-    pub fn set_close_to_tray(app: AppHandle, value: bool) -> Result<(), String> {
-        update(&app, |c| c.minimize_to_tray_on_close = value)
+    pub fn set_volume_zero_mutes(
+        app: AppHandle,
+        value: bool,
+        config: State<'_, ConfigState>,
+    ) -> Result<(), String> {
+        config.update(&app, |c| c.volume_zero_mutes = value)
     }
 
     #[tauri::command]
-    pub fn set_volume_zero_mutes(app: AppHandle, value: bool) -> Result<(), String> {
-        update(&app, |c| c.volume_zero_mutes = value)
+    pub fn set_normalize(
+        app: AppHandle,
+        value: bool,
+        config: State<'_, ConfigState>,
+    ) -> Result<(), String> {
+        config.update(&app, |c| c.normalize_volume = value)
     }
 
     #[tauri::command]
-    pub fn set_normalize(app: AppHandle, value: bool) -> Result<(), String> {
-        update(&app, |c| c.normalize_volume = value)
-    }
-
-    #[tauri::command]
-    pub fn set_reference_volume(app: AppHandle, percent: i64) -> Result<(), String> {
-        update(&app, |c| c.reference_volume_percent = percent.clamp(0, 100))
+    pub fn set_reference_volume(
+        app: AppHandle,
+        percent: i64,
+        config: State<'_, ConfigState>,
+    ) -> Result<(), String> {
+        config.update(&app, |c| c.reference_volume_percent = percent.clamp(0, 100))
     }
 }

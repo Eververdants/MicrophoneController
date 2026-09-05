@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::AppHandle;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,4 +105,45 @@ pub fn save_config(app: &AppHandle, cfg: &AppConfig) -> Result<(), String> {
     fs::write(&tmp, data).map_err(|e| e.to_string())?;
     fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// Process-lifetime config cache. Commands read this instead of re-reading the
+/// file per invocation; setting changes save through [`Self::update`], while
+/// high-frequency volume ticks only mutate the cache and are persisted on exit.
+pub struct ConfigState {
+    cfg: Mutex<AppConfig>,
+}
+
+impl ConfigState {
+    pub fn load(app: &AppHandle) -> Result<Self, String> {
+        Ok(Self {
+            cfg: Mutex::new(load_config(app)?),
+        })
+    }
+
+    pub fn get(&self) -> Result<AppConfig, String> {
+        self.cfg
+            .lock()
+            .map(|c| c.clone())
+            .map_err(|e| e.to_string())
+    }
+
+    /// Mutate the cached config without touching disk.
+    pub fn mutate(&self, f: impl FnOnce(&mut AppConfig)) -> Result<AppConfig, String> {
+        let mut cfg = self.cfg.lock().map_err(|e| e.to_string())?;
+        f(&mut cfg);
+        Ok(cfg.clone())
+    }
+
+    /// Mutate the cached config and persist it (for rare, user-initiated
+    /// setting changes where durability matters).
+    pub fn update(&self, app: &AppHandle, f: impl FnOnce(&mut AppConfig)) -> Result<(), String> {
+        let cfg = self.mutate(f)?;
+        save_config(app, &cfg)
+    }
+
+    pub fn save(&self, app: &AppHandle) -> Result<(), String> {
+        let cfg = self.cfg.lock().map_err(|e| e.to_string())?;
+        save_config(app, &cfg)
+    }
 }

@@ -7,6 +7,8 @@ mod config;
 mod hotkey;
 mod tray;
 
+use tauri::Manager;
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}))
@@ -14,6 +16,7 @@ fn main() {
         .plugin(tauri_plugin_log::Builder::new().build())
         .manage(audio::AudioController::new())
         .setup(|app| {
+            app.manage(config::ConfigState::load(app.handle())?);
             tray::build(app.handle())?;
             hotkey::init(app.handle())?;
             Ok(())
@@ -38,6 +41,13 @@ fn main() {
             commands::config::set_normalize,
             commands::config::set_reference_volume,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                if let Err(e) = app.state::<config::ConfigState>().save(app) {
+                    log::warn!("failed to persist config on exit: {e}");
+                }
+            }
+        });
 }

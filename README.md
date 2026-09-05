@@ -25,33 +25,47 @@ A lightweight cross-platform desktop tool that lets you control your microphone 
 
 | Layer | Technology |
 |---|---|
-| Desktop Shell | [pywebview](https://github.com/r0x0r/pywebview) (system WebView) |
-| Audio API | [pycaw](https://github.com/AndreMiras/pycaw) (Windows Core Audio) |
-| Global Hotkey | [keyboard](https://github.com/boppreh/keyboard) |
-| System Tray | [pystray](https://github.com/moses-palmer/pystray) |
-| Image Processing | [Pillow](https://python-pillow.org/) |
-| Frontend UI | HTML + CSS + vanilla JavaScript |
-| Installer | [PyInstaller](https://pyinstaller.org/) |
-| Product Website | React 19 + TypeScript 6 + Vite 8 + Framer Motion 12 |
+| Desktop Shell | [Tauri v2](https://v2.tauri.app/) (Rust + system WebView) |
+| Audio API | Windows Core Audio via Rust COM (`windows` crate) |
+| Global Hotkey | Tauri `global-shortcut` (plugin-ready) |
+| System Tray | Tauri built-in `SystemTray` |
+| Frontend UI | React 19 + TypeScript + Tailwind CSS v4 + Motion |
+| Animation | [Motion](https://motion.dev/) (Framer Motion v12+) |
+| Installer | Tauri bundler (MSI / DMG / AppImage) |
+| Product Website | React 19 + TypeScript + Vite + Tailwind v4 + Motion |
 | CI/CD | GitHub Actions |
 
 ## Project Structure
 
 ```
 MicrophoneController/
-├── app/                        # Desktop application
-│   ├── app.py                  # Entry point (pywebview window + tray)
-│   ├── config_store.py         # Persistent config (dataclass + JSON)
-│   ├── mic_service.py          # Microphone control via pycaw
-│   ├── requirements.txt        # Python dependencies
-│   └── frontend/               # Built-in web UI
-│       ├── index.html          # Studio-rack-style interface
-│       ├── app.js              # Frontend logic + i18n
-│       └── style.css           # Dark theme (844 lines)
-├── website/                    # Product landing page
-│   ├── src/                    # React components
-│   └── package.json            # Node dependencies
+├── src/                        # React frontend (Vite)
+│   ├── components/             # UI components
+│   │   ├── ConcentricCore.tsx  # Concentric-circle motif
+│   │   ├── VolumeSlider.tsx
+│   │   ├── DeviceSelect.tsx
+│   │   ├── Settings.tsx
+│   │   ├── ThemeToggle.tsx
+│   │   └── LanguageToggle.tsx
+│   ├── hooks/                  # useTheme, useTauri
+│   ├── i18n/                   # translations + context
+│   ├── styles/                 # Tailwind entry + CSS variables
+│   ├── App.tsx
+│   └── main.tsx
+├── src-tauri/                  # Rust backend
+│   ├── src/
+│   │   ├── main.rs
+│   │   ├── audio/              # Core Audio wrapper (Windows)
+│   │   ├── hotkey.rs
+│   │   ├── tray.rs
+│   │   ├── config.rs
+│   │   └── commands.rs         # Tauri command handlers
+│   ├── Cargo.toml
+│   ├── tauri.conf.json
+│   └── capabilities/
+├── website/                    # Product landing page (mirrored to `website` branch)
 ├── .github/workflows/build.yml # CI/CD: build + Pages + Release
+├── AGENTS.md                   # Project conventions
 └── icon.png                    # Application icon
 ```
 
@@ -123,7 +137,17 @@ The product website is hosted at:
 
 ## Version History
 
-### v3.0.0 — Native WebView Rewrite *(current)*
+### v4.0.0 — Tauri v2 Rewrite *(current)*
+- Complete rewrite from Python + pywebview to **Tauri v2** (Rust backend + React frontend)
+- Windows Core Audio via Rust COM (`windows` crate) — **no third-party .exe dependencies**
+- Concentric-circle micro-interaction UI with Motion spring animations
+- Light + dark themes with instant, no-flash toggle
+- Tailwind CSS v4 styling, system tray, global hotkey, JSON config persistence
+- Cross-platform builds (Windows / macOS / Linux) via GitHub Actions + `tauri-action`
+- Single self-contained binary — zero external runtime deps
+- Product landing page upgraded to Tailwind + Motion + light/dark
+
+### v3.0.0 — Native WebView Rewrite
 - Complete rewrite from PyQt5 to pywebview for native WebView performance
 - All-new studio-rack UI with VU meter, LED indicators, and analog-style controls
 - Volume normalization mode — lock a reference level for consistent output

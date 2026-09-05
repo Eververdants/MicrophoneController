@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from 'motion/react'
 import { useState } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
-import type { TranslationKey } from '../i18n/translations'
 
 interface SettingsProps {
   hotkey: string

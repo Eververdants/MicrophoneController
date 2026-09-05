@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 import { ConcentricCore } from './components/ConcentricCore'
 import { VolumeSlider } from './components/VolumeSlider'
 import { DeviceSelect } from './components/DeviceSelect'

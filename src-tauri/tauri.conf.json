@@ -48,7 +48,7 @@
     "longDescription": "A lightweight cross-platform desktop tool that lets you control your microphone — mute toggle, volume adjustment, device switching, and global hotkeys.",
     "externalBin": [],
     "resources": [],
-    "deb": { "depends": [] },
+    "linux": { "deb": { "depends": [] } },
     "macOS": { "frameworks": [], "minimumSystemVersion": "10.15", "exceptionDomain": "", "signingIdentity": null, "providerShortName": null, "entitlements": null },
     "windows": { "certificateThumbprint": null, "digestAlgorithm": "sha256", "timestampUrl": "", "wix": null, "nsis": null }
   }

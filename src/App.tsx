@@ -40,6 +40,11 @@ function AppShell() {
 
   useTauriEvent<boolean>('audio:status', (m) => setMuted(m))
 
+  // Settings callbacks must update local state too, or the toggles never
+  // reflect (and a second click re-sends the same stale value).
+  const patchState = (patch: Partial<InitialState>) =>
+    setState((prev) => (prev ? { ...prev, ...patch } : prev))
+
   const handleToggleMute = async () => {
     try {
       const next = await invoke<boolean>('toggle_mute')
@@ -82,7 +87,7 @@ function AppShell() {
 
   return (
     <div
-      className="flex h-full flex-col gap-4 px-6 py-5"
+      className="flex h-full flex-col gap-4 overflow-y-auto px-6 py-5"
       style={{ background: 'var(--bg)', color: 'var(--fg)' }}
     >
       {/* header */}
@@ -162,17 +167,35 @@ function AppShell() {
       <div className="mt-auto">
         <Settings
           hotkey={state.hotkey}
-          onHotkeyChange={(v) => invoke('set_hotkey', { hotkey: v }).catch(console.error)}
+          onHotkeyChange={(v) => {
+            patchState({ hotkey: v })
+            invoke('set_hotkey', { hotkey: v }).catch(console.error)
+          }}
           startMinimized={state.startMinimizedToTray}
-          onStartMinimizedChange={(v) => invoke('set_start_minimized', { value: v }).catch(console.error)}
+          onStartMinimizedChange={(v) => {
+            patchState({ startMinimizedToTray: v })
+            invoke('set_start_minimized', { value: v }).catch(console.error)
+          }}
           closeToTray={state.minimizeToTrayOnClose}
-          onCloseToTrayChange={(v) => invoke('set_close_to_tray', { value: v }).catch(console.error)}
+          onCloseToTrayChange={(v) => {
+            patchState({ minimizeToTrayOnClose: v })
+            invoke('set_close_to_tray', { value: v }).catch(console.error)
+          }}
           zeroVolumeMutes={state.volumeZeroMutes}
-          onZeroVolumeMutesChange={(v) => invoke('set_volume_zero_mutes', { value: v }).catch(console.error)}
+          onZeroVolumeMutesChange={(v) => {
+            patchState({ volumeZeroMutes: v })
+            invoke('set_volume_zero_mutes', { value: v }).catch(console.error)
+          }}
           normalize={state.normalizeVolume}
-          onNormalizeChange={(v) => invoke('set_normalize', { value: v }).catch(console.error)}
+          onNormalizeChange={(v) => {
+            patchState({ normalizeVolume: v })
+            invoke('set_normalize', { value: v }).catch(console.error)
+          }}
           referenceVolume={state.referenceVolumePercent}
-          onReferenceVolumeChange={(v) => invoke('set_reference_volume', { percent: v }).catch(console.error)}
+          onReferenceVolumeChange={(v) => {
+            patchState({ referenceVolumePercent: v })
+            invoke('set_reference_volume', { percent: v }).catch(console.error)
+          }}
         />
       </div>
     </div>

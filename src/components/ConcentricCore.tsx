@@ -1,4 +1,5 @@
 import { motion, useSpring, useTransform } from 'motion/react'
+import { useEffect } from 'react'
 
 interface ConcentricCoreProps {
   muted: boolean
@@ -17,6 +18,11 @@ export function ConcentricCore({
   const accentSoft = muted ? 'color-mix(in srgb, var(--danger) 18%, transparent)' : 'color-mix(in srgb, var(--success) 18%, transparent)'
 
   const spring = useSpring(volumePercent, { stiffness: 120, damping: 18, mass: 0.6 })
+  // useSpring only auto-follows a MotionValue source; a plain number stays at
+  // its initial value unless pushed.
+  useEffect(() => {
+    spring.set(volumePercent)
+  }, [spring, volumePercent])
   const ring1Scale = useTransform(spring, [0, 100], [0.85, 1.0])
   const ring2Scale = useTransform(spring, [0, 100], [0.9, 1.08])
   const ring3Scale = useTransform(spring, [0, 100], [0.95, 1.16])

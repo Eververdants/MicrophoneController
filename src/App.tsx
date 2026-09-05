@@ -16,6 +16,7 @@ function AppShell() {
   const { theme, toggle: toggleTheme } = useTheme()
   const [state, setState] = useState<InitialState | null>(null)
   const [volume, setVolume] = useState(100)
+  const [volumeDb, setVolumeDb] = useState(-96)
   const [muted, setMuted] = useState(false)
 
   useEffect(() => {
@@ -23,6 +24,7 @@ function AppShell() {
       .then((s) => {
         setState(s)
         setVolume(s.volumePercent)
+        setVolumeDb(s.volumeDb)
         setMuted(s.muted)
       })
       .catch((err) => console.error('get_initial_state failed:', err))
@@ -42,7 +44,8 @@ function AppShell() {
   const handleVolume = async (v: number) => {
     setVolume(v)
     try {
-      await invoke('set_volume', { percent: v })
+      const db = await invoke<number>('set_volume', { percent: v })
+      setVolumeDb(db)
     } catch (err) {
       console.error('set_volume failed:', err)
     }
@@ -112,7 +115,7 @@ function AppShell() {
         <VolumeSlider
           value={volume}
           onChange={handleVolume}
-          db={state.volumeDb}
+          db={volumeDb}
           disabled={!state.platformSupported}
         />
       </div>

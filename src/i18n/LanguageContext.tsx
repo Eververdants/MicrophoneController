@@ -1,29 +1,28 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { translations, type Lang, type TranslationKey } from './translations'
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { translations, type Lang } from './translations'
 
-interface LanguageContextValue {
+type LanguageContextType = {
   lang: Lang
   setLang: (lang: Lang) => void
-  t: (key: TranslationKey) => string
+  t: (key: string, params?: Record<string, string | number>) => string
 }
 
-const LanguageContext = createContext<LanguageContextValue | null>(null)
-
-const STORAGE_KEY = 'mc.lang'
+const LanguageContext = createContext<LanguageContextType | null>(null)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored === 'en' || stored === 'zh-CN' ? stored : 'zh-CN'
-  })
+  const [lang, setLang] = useState<Lang>('en')
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, lang)
-  }, [lang])
-
-  const setLang = (next: Lang) => setLangState(next)
-
-  const t = (key: TranslationKey) => translations[lang][key] ?? key
+  const t = useCallback(
+    (key: string, params?: Record<string, string | number>) => {
+      const text = translations[lang]?.[key] ?? translations['en']?.[key] ?? key
+      if (!params) return text
+      return Object.entries(params).reduce(
+        (result, [k, v]) => result.replace(`{${k}}`, String(v)),
+        text,
+      )
+    },
+    [lang],
+  )
 
   return (
     <LanguageContext.Provider value={{ lang, setLang, t }}>
@@ -32,8 +31,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function useLanguage() {
+export function useLanguage(): LanguageContextType {
   const ctx = useContext(LanguageContext)
-  if (!ctx) throw new Error('useLanguage must be used within LanguageProvider')
+  if (!ctx) {
+    throw new Error('useLanguage must be used within a LanguageProvider')
+  }
   return ctx
 }

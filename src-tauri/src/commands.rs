@@ -24,7 +24,7 @@ pub struct InitialState {
 pub mod audio {
     use super::*;
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn get_initial_state(
         audio: State<'_, AudioController>,
         config: State<'_, ConfigState>,
@@ -78,7 +78,7 @@ pub mod audio {
         })
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn toggle_mute(
         app: AppHandle,
         audio: State<'_, AudioController>,
@@ -92,7 +92,7 @@ pub mod audio {
         Ok(new_state)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn set_mute(
         app: AppHandle,
         muted: bool,
@@ -107,7 +107,7 @@ pub mod audio {
         Ok(())
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn set_volume(
         app: AppHandle,
         percent: i64,
@@ -141,12 +141,12 @@ pub mod audio {
         Ok(outcome.volume_db)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn list_devices() -> Result<Vec<DeviceInfo>, String> {
         audio_win::list_capture_devices()
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn select_device(
         app: AppHandle,
         device_id: Option<String>,
@@ -161,7 +161,7 @@ pub mod audio {
 pub mod config {
     use super::*;
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn set_hotkey(
         app: AppHandle,
         hotkey: String,
@@ -170,7 +170,7 @@ pub mod config {
         config.update(&app, |c| c.hotkey = hotkey)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn set_language(
         app: AppHandle,
         language: String,
@@ -179,7 +179,7 @@ pub mod config {
         config.update(&app, |c| c.language = language)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn set_start_minimized(
         app: AppHandle,
         value: bool,
@@ -188,7 +188,7 @@ pub mod config {
         config.update(&app, |c| c.start_minimized_to_tray = value)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn set_close_to_tray(
         app: AppHandle,
         value: bool,
@@ -197,7 +197,7 @@ pub mod config {
         config.update(&app, |c| c.minimize_to_tray_on_close = value)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn set_volume_zero_mutes(
         app: AppHandle,
         value: bool,
@@ -206,7 +206,7 @@ pub mod config {
         config.update(&app, |c| c.volume_zero_mutes = value)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn set_normalize(
         app: AppHandle,
         value: bool,
@@ -215,7 +215,7 @@ pub mod config {
         config.update(&app, |c| c.normalize_volume = value)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     pub fn set_reference_volume(
         app: AppHandle,
         percent: i64,

@@ -34,11 +34,12 @@ pub mod audio {
         let platform_supported = cfg!(windows);
 
         let (muted, volume_percent, volume_db, devices) = if platform_supported {
-            let muted = audio_win::is_muted().unwrap_or(false);
-            let vol = audio_win::get_volume_percent().unwrap_or(cfg.last_volume_percent);
-            let db = audio_win::get_volume_db().unwrap_or(-96.0);
+            let (muted, percent, db) = audio_win::with_default_endpoint(
+                audio_win::read_endpoint_state,
+            )
+            .unwrap_or((false, cfg.last_volume_percent, -96.0));
             let devices = audio_win::list_capture_devices().unwrap_or_default();
-            (muted, vol, db, devices)
+            (muted, percent, db, devices)
         } else {
             (
                 false,
@@ -112,35 +113,32 @@ pub mod audio {
         percent: i64,
         audio: State<'_, AudioController>,
         config: State<'_, ConfigState>,
-    ) -> Result<(), String> {
+    ) -> Result<f64, String> {
         let clamped = percent.clamp(0, 100);
-        audio_win::set_volume_percent(clamped)?;
 
         // Cache-only: last volume is persisted on app exit, not on every
         // slider tick.
-        let cfg = config.mutate(|cfg| {
-            cfg.last_volume_percent = clamped;
-            if cfg.normalize_volume {
-                cfg.reference_volume_percent = clamped;
+        let cfg = config.mutate(|c| {
+            c.last_volume_percent = clamped;
+            if c.normalize_volume {
+                c.reference_volume_percent = clamped;
             }
         })?;
 
-        if cfg.volume_zero_mutes {
-            if clamped <= 0 && !audio_win::is_muted().unwrap_or(false) {
-                audio_win::set_mute(true)?;
-                let _ = app.emit("audio:status", true);
-            } else if clamped > 0 && audio_win::is_muted().unwrap_or(false) {
-                audio_win::set_mute(false)?;
-                let _ = app.emit("audio:status", false);
-            }
+        let outcome = audio_win::set_volume_percent_ex(clamped, cfg.volume_zero_mutes)?;
+        if let Some(muted) = outcome.muted {
+            let _ = app.emit("audio:status", muted);
         }
 
         {
             let mut inner = audio.inner.lock().map_err(|e| e.to_string())?;
             inner.last_known_volume_percent = clamped;
+            if let Some(muted) = outcome.muted {
+                inner.last_known_muted = muted;
+            }
         }
 
-        Ok(())
+        Ok(outcome.volume_db)
     }
 
     #[tauri::command]

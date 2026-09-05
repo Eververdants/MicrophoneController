@@ -133,54 +133,92 @@ pub mod win {
         }
     }
 
-    pub fn is_muted() -> Result<bool, String> {
+    /// Run `f` with the default capture endpoint. Acquiring the endpoint means
+    /// CoCreateInstance + GetDefaultAudioEndpoint + Activate, so callers doing
+    /// several operations should batch them behind this helper instead of
+    /// going through one-shot wrappers.
+    pub fn with_default_endpoint<T>(
+        f: impl FnOnce(&IAudioEndpointVolume) -> Result<T, String>,
+    ) -> Result<T, String> {
         let ep = get_default_endpoint()?;
+        f(&ep)
+    }
+
+    /// Read (muted, volume percent, volume dB) from one endpoint.
+    pub fn read_endpoint_state(ep: &IAudioEndpointVolume) -> Result<(bool, i64, f64), String> {
         unsafe {
-            ep.GetMute()
+            let muted = ep
+                .GetMute()
                 .map(bool::from)
-                .map_err(|e| format!("GetMute: {e}"))
+                .map_err(|e| format!("GetMute: {e}"))?;
+            let percent = ep
+                .GetMasterVolumeLevelScalar()
+                .map(|s| (s * 100.0).round() as i64)
+                .map_err(|e| format!("GetMasterVolumeLevelScalar: {e}"))?;
+            let db = ep
+                .GetMasterVolumeLevel()
+                .map(f64::from)
+                .map_err(|e| format!("GetMasterVolumeLevel: {e}"))?;
+            Ok((muted, percent, db))
         }
+    }
+
+    /// Outcome of a volume change: the resulting level in dB and, when the
+    /// zero-volume-mute policy toggled muting, the new mute state.
+    pub struct VolumeOutcome {
+        pub volume_db: f64,
+        pub muted: Option<bool>,
+    }
+
+    pub fn set_volume_percent_ex(percent: i64, zero_mutes: bool) -> Result<VolumeOutcome, String> {
+        let clamped = percent.clamp(0, 100);
+        let target = (clamped as f32) / 100.0;
+        with_default_endpoint(|ep| unsafe {
+            ep.SetMasterVolumeLevelScalar(target, std::ptr::null())
+                .map_err(|e| format!("SetMasterVolumeLevelScalar: {e}"))?;
+
+            let mut muted = None;
+            if zero_mutes {
+                let is_muted = ep
+                    .GetMute()
+                    .map(bool::from)
+                    .map_err(|e| format!("GetMute: {e}"))?;
+                if clamped <= 0 && !is_muted {
+                    ep.SetMute(true, std::ptr::null())
+                        .map_err(|e| format!("SetMute: {e}"))?;
+                    muted = Some(true);
+                } else if clamped > 0 && is_muted {
+                    ep.SetMute(false, std::ptr::null())
+                        .map_err(|e| format!("SetMute: {e}"))?;
+                    muted = Some(false);
+                }
+            }
+
+            let volume_db = ep
+                .GetMasterVolumeLevel()
+                .map(f64::from)
+                .map_err(|e| format!("GetMasterVolumeLevel: {e}"))?;
+            Ok(VolumeOutcome { volume_db, muted })
+        })
     }
 
     pub fn set_mute(muted: bool) -> Result<(), String> {
-        let ep = get_default_endpoint()?;
-        unsafe {
+        with_default_endpoint(|ep| unsafe {
             ep.SetMute(muted, std::ptr::null())
                 .map_err(|e| format!("SetMute: {e}"))
-        }
+        })
     }
 
     pub fn toggle_mute() -> Result<bool, String> {
-        let current = is_muted()?;
-        set_mute(!current)?;
-        Ok(!current)
-    }
-
-    pub fn get_volume_percent() -> Result<i64, String> {
-        let ep = get_default_endpoint()?;
-        unsafe {
-            ep.GetMasterVolumeLevelScalar()
-                .map(|s| (s * 100.0).round() as i64)
-                .map_err(|e| format!("GetMasterVolumeLevelScalar: {e}"))
-        }
-    }
-
-    pub fn get_volume_db() -> Result<f64, String> {
-        let ep = get_default_endpoint()?;
-        unsafe {
-            ep.GetMasterVolumeLevel()
-                .map(f64::from)
-                .map_err(|e| format!("GetMasterVolumeLevel: {e}"))
-        }
-    }
-
-    pub fn set_volume_percent(percent: i64) -> Result<(), String> {
-        let clamped = (percent.clamp(0, 100) as f32) / 100.0;
-        let ep = get_default_endpoint()?;
-        unsafe {
-            ep.SetMasterVolumeLevelScalar(clamped, std::ptr::null())
-                .map_err(|e| format!("SetMasterVolumeLevelScalar: {e}"))
-        }
+        with_default_endpoint(|ep| unsafe {
+            let current = ep
+                .GetMute()
+                .map(bool::from)
+                .map_err(|e| format!("GetMute: {e}"))?;
+            ep.SetMute(!current, std::ptr::null())
+                .map_err(|e| format!("SetMute: {e}"))?;
+            Ok(!current)
+        })
     }
 
     pub fn select_device(_device_id: Option<&str>) -> Result<(), String> {
@@ -200,6 +238,9 @@ pub mod win {
     pub fn list_capture_devices() -> Result<Vec<DeviceInfo>, String> {
         Ok(Vec::new())
     }
+    pub fn with_default_endpoint<T>(_: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+        Err("audio not supported on this platform".into())
+    }
     pub fn is_muted() -> Result<bool, String> {
         Err("audio not supported on this platform".into())
     }
@@ -209,13 +250,7 @@ pub mod win {
     pub fn toggle_mute() -> Result<bool, String> {
         Err("audio not supported on this platform".into())
     }
-    pub fn get_volume_percent() -> Result<i64, String> {
-        Err("audio not supported on this platform".into())
-    }
-    pub fn get_volume_db() -> Result<f64, String> {
-        Err("audio not supported on this platform".into())
-    }
-    pub fn set_volume_percent(_: i64) -> Result<(), String> {
+    pub fn set_volume_percent_ex(_: i64, _: bool) -> Result<VolumeOutcome, String> {
         Err("audio not supported on this platform".into())
     }
     pub fn select_device(_: Option<&str>) -> Result<(), String> {

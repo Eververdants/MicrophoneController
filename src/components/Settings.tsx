@@ -46,12 +46,7 @@ export function Settings(props: SettingsProps) {
           >
             <div className="flex flex-col gap-3 px-1 pb-2 pt-1">
               <Field label={t('hotkey')}>
-                <input
-                  value={props.hotkey}
-                  onChange={(e) => props.onHotkeyChange(e.target.value)}
-                  className="w-full rounded-md border px-2 py-1 text-sm"
-                  style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)', color: 'var(--fg)' }}
-                />
+                <HotkeyInput value={props.hotkey} onCommit={props.onHotkeyChange} />
               </Field>
               <Toggle label={t('startMinimized')} value={props.startMinimized} onChange={props.onStartMinimizedChange} />
               <Toggle label={t('closeToTray')} value={props.closeToTray} onChange={props.onCloseToTrayChange} />
@@ -74,6 +69,40 @@ export function Settings(props: SettingsProps) {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+// Registering a hotkey on every keystroke would churn OS registrations (and
+// reject partial strings like "F"), so the draft is committed on blur/Enter.
+function HotkeyInput({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
+  const [draft, setDraft] = useState(value)
+  const [prevValue, setPrevValue] = useState(value)
+
+  // Resync the draft when the committed value changes, without an effect.
+  if (prevValue !== value) {
+    setPrevValue(value)
+    setDraft(value)
+  }
+
+  const commit = () => {
+    const next = draft.trim()
+    if (next !== value) onCommit(next)
+  }
+
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          commit()
+          e.currentTarget.blur()
+        }
+      }}
+      className="w-full rounded-md border px-2 py-1 text-sm"
+      style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)', color: 'var(--fg)' }}
+    />
   )
 }
 

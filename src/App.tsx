@@ -6,15 +6,16 @@ import { DeviceSelect } from './components/DeviceSelect'
 import { Settings } from './components/Settings'
 import { ThemeToggle } from './components/ThemeToggle'
 import { LanguageToggle } from './components/LanguageToggle'
-import { LanguageProvider, useLanguage } from './i18n/LanguageContext'
+import { LanguageProvider, useLanguage, LANG_STORAGE_KEY } from './i18n/LanguageContext'
 import { useTheme } from './hooks/useTheme'
 import { invoke, useTauriEvent } from './hooks/useTauri'
 import type { InitialState } from './types'
 
 function AppShell() {
-  const { t } = useLanguage()
+  const { t, setLang } = useLanguage()
   const { theme, toggle: toggleTheme } = useTheme()
   const [state, setState] = useState<InitialState | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [volume, setVolume] = useState(100)
   const [volumeDb, setVolumeDb] = useState(-96)
   const [muted, setMuted] = useState(false)
@@ -26,9 +27,16 @@ function AppShell() {
         setVolume(s.volumePercent)
         setVolumeDb(s.volumeDb)
         setMuted(s.muted)
+        // First launch: adopt the language persisted in the backend config.
+        if (localStorage.getItem(LANG_STORAGE_KEY) === null) {
+          if (s.language === 'en' || s.language === 'zh-CN') setLang(s.language)
+        }
       })
-      .catch((err) => console.error('get_initial_state failed:', err))
-  }, [])
+      .catch((err) => {
+        console.error('get_initial_state failed:', err)
+        setLoadError(String(err))
+      })
+  }, [setLang])
 
   useTauriEvent<boolean>('audio:status', (m) => setMuted(m))
 
@@ -49,6 +57,14 @@ function AppShell() {
     } catch (err) {
       console.error('set_volume failed:', err)
     }
+  }
+
+  if (loadError) {
+    return (
+      <div className="grid h-full place-items-center px-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
+        {t('loadFailed')}: {loadError}
+      </div>
+    )
   }
 
   if (!state) {
@@ -131,9 +147,13 @@ function AppShell() {
           onChange={(id) => invoke('select_device', { deviceId: id }).catch(console.error)}
           disabled={!state.platformSupported}
         />
-        {!state.platformSupported && (
+        {!state.platformSupported ? (
           <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
             {t('platformUnsupported')}
+          </p>
+        ) : (
+          <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+            {t('deviceNote')}
           </p>
         )}
       </div>

@@ -1,4 +1,5 @@
 import type { DeviceInfo } from '../types'
+import { useLanguage } from '../i18n/LanguageContext'
 
 interface DeviceSelectProps {
   devices: DeviceInfo[]
@@ -8,6 +9,7 @@ interface DeviceSelectProps {
 }
 
 export function DeviceSelect({ devices, selectedId, onChange, disabled }: DeviceSelectProps) {
+  const { t } = useLanguage()
   return (
     <select
       value={selectedId ?? ''}
@@ -20,7 +22,7 @@ export function DeviceSelect({ devices, selectedId, onChange, disabled }: Device
         color: 'var(--fg)',
       }}
     >
-      <option value="">{/* default */}</option>
+      <option value="">{t('defaultDevice')}</option>
       {devices.map((d) => (
         <option key={d.id} value={d.id}>
           {d.name}

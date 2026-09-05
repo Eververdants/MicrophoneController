@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
 interface TauriLike {
   invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>
@@ -14,26 +14,12 @@ export function isTauri(): boolean {
   return getTauri() !== null
 }
 
-export function useTauriInvoke<T>(command: string, args?: Record<string, unknown>): T | null {
-  const [result, setResult] = useState<T | null>(null)
-  useEffect(() => {
-    const tauri = getTauri()
-    if (!tauri) return
-    let cancelled = false
-    tauri
-      .invoke(command, args)
-      .then((r) => {
-        if (!cancelled) setResult(r as T)
-      })
-      .catch((err) => console.error(`invoke ${command} failed:`, err))
-    return () => {
-      cancelled = true
-    }
-  }, [command])
-  return result
-}
-
 export function useTauriEvent<T>(event: string, handler: (payload: T) => void) {
+  const handlerRef = useRef(handler)
+  useEffect(() => {
+    handlerRef.current = handler
+  })
+
   useEffect(() => {
     const tauri = getTauri()
     if (!tauri) return
@@ -41,7 +27,7 @@ export function useTauriEvent<T>(event: string, handler: (payload: T) => void) {
     let cancelled = false
     tauri
       .listen<T>(event, (e) => {
-        if (!cancelled) handler(e.payload)
+        if (!cancelled) handlerRef.current(e.payload)
       })
       .then((unlisten) => {
         cancel = unlisten

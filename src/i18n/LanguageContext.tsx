@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { invoke } from '../hooks/useTauri'
 import { translations, type Lang, type TranslationKey } from './translations'
 
 interface LanguageContextValue {
@@ -9,27 +10,32 @@ interface LanguageContextValue {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null)
 
-const STORAGE_KEY = 'mc.lang'
+export const LANG_STORAGE_KEY = 'mc.lang'
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = localStorage.getItem(LANG_STORAGE_KEY)
     return stored === 'en' || stored === 'zh-CN' ? stored : 'zh-CN'
   })
+  // Skip the mount effect so startup doesn't rewrite the same value to config.
+  const firstRun = useRef(true)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, lang)
+    localStorage.setItem(LANG_STORAGE_KEY, lang)
+    if (firstRun.current) {
+      firstRun.current = false
+      return
+    }
+    invoke('set_language', { language: lang }).catch((err) =>
+      console.error('set_language failed:', err),
+    )
   }, [lang])
 
-  const setLang = (next: Lang) => setLangState(next)
+  const setLang = useCallback((next: Lang) => setLangState(next), [])
+  const t = useCallback((key: TranslationKey) => translations[lang][key] ?? key, [lang])
+  const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t])
 
-  const t = (key: TranslationKey) => translations[lang][key] ?? key
-
-  return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
-      {children}
-    </LanguageContext.Provider>
-  )
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }
 
 export function useLanguage() {

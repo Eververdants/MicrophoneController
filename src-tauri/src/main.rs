@@ -21,18 +21,26 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_shell::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        if let Err(e) = hotkey::toggle_mute(app) {
+                            log::warn!("hotkey mute toggle failed: {e}");
+                        }
+                    }
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_log::Builder::new().build())
         .manage(audio::AudioController::new())
         .setup(|app| {
             app.manage(config::ConfigState::load(app.handle())?);
-            let start_minimized = app
-                .state::<config::ConfigState>()
-                .get()?
-                .start_minimized_to_tray;
+            let cfg = app.state::<config::ConfigState>().get()?;
             tray::build(app.handle())?;
-            hotkey::init(app.handle())?;
+            hotkey::init(app.handle(), &cfg.hotkey)?;
             if let Some(w) = app.get_webview_window("main") {
-                if start_minimized {
+                if cfg.start_minimized_to_tray {
                     let _ = w.hide();
                 } else {
                     let _ = w.show();

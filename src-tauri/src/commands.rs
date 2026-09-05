@@ -167,6 +167,9 @@ pub mod config {
         hotkey: String,
         config: State<'_, ConfigState>,
     ) -> Result<(), String> {
+        // Validate + register before persisting, so a bad rebinding is
+        // rejected without losing the previous hotkey.
+        crate::hotkey::set_hotkey(&app, &hotkey)?;
         config.update(&app, |c| c.hotkey = hotkey)
     }
 

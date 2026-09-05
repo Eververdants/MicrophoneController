@@ -77,21 +77,20 @@ build-desktop:
         tauriScript: npm run tauri
 
 # ============================================================
-# Job 2: Build website
+# Job 2: Build website (from `website` branch)
 # ============================================================
 build-website:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: website
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: website
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: website/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install website deps
         run: npm ci
@@ -102,7 +101,7 @@ build-website:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: website/dist
+          path: dist
 
 # ============================================================
 # Job 3: Deploy GitHub Pages

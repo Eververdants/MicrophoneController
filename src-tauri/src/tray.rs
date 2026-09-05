@@ -5,15 +5,15 @@ use tauri::{
 };
 
 pub fn build(app: &AppHandle) -> Result<(), String> {
-    let show_item = MenuItem::with_id(app, "show", "Show", true, None::<&str>)
-        .map_err(|e| e.to_string())?;
-    let hide_item = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)
-        .map_err(|e| e.to_string())?;
-    let quit_item = MenuItem::with_id(app, "quit", "Exit", true, None::<&str>)
-        .map_err(|e| e.to_string())?;
+    let show_item =
+        MenuItem::with_id(app, "show", "Show", true, None::<&str>).map_err(|e| e.to_string())?;
+    let hide_item =
+        MenuItem::with_id(app, "hide", "Hide", true, None::<&str>).map_err(|e| e.to_string())?;
+    let quit_item =
+        MenuItem::with_id(app, "quit", "Exit", true, None::<&str>).map_err(|e| e.to_string())?;
 
-    let menu = Menu::with_items(app, &[&show_item, &hide_item, &quit_item])
-        .map_err(|e| e.to_string())?;
+    let menu =
+        Menu::with_items(app, &[&show_item, &hide_item, &quit_item]).map_err(|e| e.to_string())?;
 
     TrayIconBuilder::with_id("main-tray")
         .tooltip("MicrophoneController")

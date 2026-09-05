@@ -89,7 +89,9 @@ pub fn load_config(app: &AppHandle) -> Result<AppConfig, String> {
     match serde_json::from_str(&data) {
         Ok(cfg) => Ok(cfg),
         Err(e) => {
-            log::warn!("config.json invalid ({e}); using defaults, original kept as config.json.bak");
+            log::warn!(
+                "config.json invalid ({e}); using defaults, original kept as config.json.bak"
+            );
             let _ = fs::rename(&path, path.with_extension("json.bak"));
             Ok(AppConfig::default())
         }

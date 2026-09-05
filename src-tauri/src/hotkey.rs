@@ -23,7 +23,7 @@ fn parse(hotkey: &str) -> Result<Shortcut, String> {
 pub fn init(app: &AppHandle, hotkey: &str) -> Result<(), String> {
     let shortcut = parse(hotkey)?;
     app.manage(HotkeyState {
-        current: Mutex::new(shortcut.clone()),
+        current: Mutex::new(shortcut),
     });
     if let Err(e) = app.global_shortcut().register(shortcut) {
         log::warn!("could not register global hotkey '{hotkey}': {e}");
@@ -42,9 +42,9 @@ pub fn set_hotkey(app: &AppHandle, hotkey: &str) -> Result<(), String> {
     }
     let shortcuts = app.global_shortcut();
     shortcuts
-        .register(new_shortcut.clone())
+        .register(new_shortcut)
         .map_err(|e| format!("could not register hotkey '{hotkey}': {e}"))?;
-    let _ = shortcuts.unregister(current.clone());
+    let _ = shortcuts.unregister(*current);
     *current = new_shortcut;
     Ok(())
 }

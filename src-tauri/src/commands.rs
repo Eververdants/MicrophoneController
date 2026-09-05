@@ -79,10 +79,7 @@ pub mod audio {
     }
 
     #[tauri::command(async)]
-    pub fn toggle_mute(
-        app: AppHandle,
-        audio: State<'_, AudioController>,
-    ) -> Result<bool, String> {
+    pub fn toggle_mute(app: AppHandle, audio: State<'_, AudioController>) -> Result<bool, String> {
         let new_state = audio_win::toggle_mute()?;
         {
             let mut inner = audio.inner.lock().map_err(|e| e.to_string())?;

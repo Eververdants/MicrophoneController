@@ -40,17 +40,17 @@ impl AudioController {
 pub mod win {
     use super::*;
     use std::cell::RefCell;
+    use windows::core::GUID;
     use windows::Win32::Foundation::PROPERTYKEY;
     use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
     use windows::Win32::Media::Audio::{
-        eCapture, eConsole, IMMDevice, IMMDeviceCollection, MMDeviceEnumerator,
-        IMMDeviceEnumerator, DEVICE_STATE_ACTIVE,
+        eCapture, eConsole, IMMDevice, IMMDeviceCollection, IMMDeviceEnumerator,
+        MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
     };
     use windows::Win32::System::Com::{
         CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
         STGM_READ,
     };
-    use windows::core::GUID;
 
     thread_local! {
         static COM_INIT: RefCell<bool> = const { RefCell::new(false) };
@@ -70,7 +70,10 @@ pub mod win {
     // PKEY_Device_FriendlyName = {a45c254e-df1c-4efd-8020-67d146a850e0 14}
     const PKEY_DEVICE_FRIENDLY_NAME: PROPERTYKEY = PROPERTYKEY {
         fmtid: GUID::from_values(
-            0xa45c254e, 0xdf1c, 0x4efd, [0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0],
+            0xa45c254e,
+            0xdf1c,
+            0x4efd,
+            [0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0],
         ),
         pid: 14,
     };

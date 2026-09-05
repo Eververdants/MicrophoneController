@@ -55,3 +55,4 @@ ehthumbs.db
 
 # Internal docs (planning / specs — not for public)
 .planning/
+tsconfig.tsbuildinfo

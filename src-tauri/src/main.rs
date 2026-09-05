@@ -11,19 +11,48 @@ use tauri::Manager;
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}))
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // A second launch should surface the existing window instead of
+            // doing nothing (the window may be sitting in the tray).
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_log::Builder::new().build())
         .manage(audio::AudioController::new())
         .setup(|app| {
             app.manage(config::ConfigState::load(app.handle())?);
+            let start_minimized = app
+                .state::<config::ConfigState>()
+                .get()?
+                .start_minimized_to_tray;
             tray::build(app.handle())?;
             hotkey::init(app.handle())?;
+            if let Some(w) = app.get_webview_window("main") {
+                if start_minimized {
+                    let _ = w.hide();
+                } else {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
             Ok(())
         })
-        .on_window_event(|_window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                // Window close behavior handled by frontend via close-to-tray config.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let close_to_tray = window
+                    .app_handle()
+                    .state::<config::ConfigState>()
+                    .get()
+                    .map(|c| c.minimize_to_tray_on_close)
+                    .unwrap_or(true);
+                if close_to_tray {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![

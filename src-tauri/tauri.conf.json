@@ -19,6 +19,7 @@
         "decorations": true,
         "shadow": true,
         "center": true,
+        "visible": false,
         "skipTaskbar": false,
         "titleBarStyle": "Visible",
         "hiddenTitle": false,

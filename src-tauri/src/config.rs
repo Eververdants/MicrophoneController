@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,25 +67,41 @@ impl Default for AppConfig {
 pub fn config_path(_app: &AppHandle) -> Result<PathBuf, String> {
     let base = dirs::data_dir().ok_or("cannot resolve data dir")?;
     let dir = base.join("MicrophoneController");
-    if !dir.exists() {
-        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    }
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir.join("config.json"))
 }
 
+/// A corrupt or unreadable config must not brick the app (every command loads
+/// the config), so fall back to defaults and keep the broken file as .bak.
 pub fn load_config(app: &AppHandle) -> Result<AppConfig, String> {
     let path = config_path(app)?;
     if !path.exists() {
         return Ok(AppConfig::default());
     }
-    let data = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let cfg: AppConfig = serde_json::from_str(&data).map_err(|e| e.to_string())?;
-    Ok(cfg)
+    let data = match fs::read_to_string(&path) {
+        Ok(data) => data,
+        Err(e) => {
+            log::warn!("config.json unreadable ({e}); using defaults");
+            return Ok(AppConfig::default());
+        }
+    };
+    match serde_json::from_str(&data) {
+        Ok(cfg) => Ok(cfg),
+        Err(e) => {
+            log::warn!("config.json invalid ({e}); using defaults, original kept as config.json.bak");
+            let _ = fs::rename(&path, path.with_extension("json.bak"));
+            Ok(AppConfig::default())
+        }
+    }
 }
 
+/// Write to a sibling temp file and rename, so a crash mid-write cannot leave
+/// a truncated config.json behind.
 pub fn save_config(app: &AppHandle, cfg: &AppConfig) -> Result<(), String> {
     let path = config_path(app)?;
-    let data = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
-    fs::write(&path, data).map_err(|e| e.to_string())?;
+    let data = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, data).map_err(|e| e.to_string())?;
+    fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
     Ok(())
 }

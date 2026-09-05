@@ -11,6 +11,7 @@ venv/
 .ruff_cache/
 pip-wheel-metadata/
 
+# Python build
 build/
 dist/
 *.spec
@@ -19,6 +20,17 @@ dist/
 node_modules/
 website/dist/
 website/.vite/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Vite
+dist/
+.vite/
 
 # OS
 .DS_Store
@@ -42,4 +54,4 @@ ehthumbs.db
 .env.*.local
 
 # Internal docs (planning / specs — not for public)
-docs/
+.planning/

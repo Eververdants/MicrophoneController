@@ -41,6 +41,7 @@ ehthumbs.db
 
 # IDE
 .vscode/
+.workbuddy/
 .idea/
 *.swp
 *.swo

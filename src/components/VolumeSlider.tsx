@@ -14,7 +14,7 @@ interface VolumeSliderProps {
 export function VolumeSlider({ value, onChange, db, disabled }: VolumeSliderProps) {
   const { t } = useLanguage()
   const trackRef = useRef<HTMLDivElement>(null)
-  const [trackHeight, setTrackHeight] = useState(176) // h-44 fallback before measure
+  const [trackHeight, setTrackHeight] = useState(160) // h-40 fallback before measure
   const y = useMotionValue(0)
   const thumbTravel = trackHeight - THUMB_SIZE
   // Fill meets the thumb centre: thumb top is y, centre is y + THUMB/2.
@@ -75,7 +75,7 @@ export function VolumeSlider({ value, onChange, db, disabled }: VolumeSliderProp
   }
 
   return (
-    <div className="flex h-full flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-2.5">
       <div
         ref={trackRef}
         onPointerDown={handlePointerDown}
@@ -89,7 +89,7 @@ export function VolumeSlider({ value, onChange, db, disabled }: VolumeSliderProp
         aria-valuemax={100}
         aria-valuenow={value}
         aria-disabled={disabled}
-        className="relative h-44 w-2 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        className="relative h-40 w-2 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         style={{ background: 'var(--accent-soft)', touchAction: 'none' }}
       >
         <motion.div

@@ -1,3 +1,4 @@
+import { Select } from './ui/Select'
 import type { DeviceInfo } from '../types'
 import { useLanguage } from '../i18n/LanguageContext'
 
@@ -10,24 +11,17 @@ interface DeviceSelectProps {
 
 export function DeviceSelect({ devices, selectedId, onChange, disabled }: DeviceSelectProps) {
   const { t } = useLanguage()
+  const options = [
+    { value: '', label: t('defaultDevice') },
+    ...devices.map((d) => ({ value: d.id, label: d.name })),
+  ]
   return (
-    <select
+    <Select
       value={selectedId ?? ''}
+      options={options}
+      onChange={(id) => onChange(id || null)}
       disabled={disabled || devices.length === 0}
-      onChange={(e) => onChange(e.target.value || null)}
-      className="w-full rounded-lg border px-3 py-2 text-sm"
-      style={{
-        background: 'var(--bg-elevated)',
-        borderColor: 'var(--border)',
-        color: 'var(--fg)',
-      }}
-    >
-      <option value="">{t('defaultDevice')}</option>
-      {devices.map((d) => (
-        <option key={d.id} value={d.id}>
-          {d.name}
-        </option>
-      ))}
-    </select>
+      ariaLabel={t('device')}
+    />
   )
 }

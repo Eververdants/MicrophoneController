@@ -96,7 +96,15 @@ function MicIcon({ muted, color }: { muted: boolean; color: string }) {
       <rect x="9" y="3" width="6" height="11" rx="3" />
       <path d="M5 11a7 7 0 0 0 14 0" />
       <path d="M12 18v3" />
-      {muted && <path d="M3 3l18 18" stroke="var(--danger)" strokeWidth="2" />}
+      {/* Always rendered; opacity crossfades so the slash doesn't pop in/out. */}
+      <motion.path
+        d="M3 3l18 18"
+        stroke="var(--danger)"
+        strokeWidth="2"
+        initial={false}
+        animate={{ opacity: muted ? 1 : 0 }}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
+      />
     </svg>
   )
 }

@@ -1,19 +1,69 @@
-import { useEffect, useState } from 'react'
-import { motion } from 'motion/react'
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, MotionConfig, motion, type Variants } from 'motion/react'
 import { ConcentricCore } from './components/ConcentricCore'
 import { VolumeSlider } from './components/VolumeSlider'
 import { DeviceSelect } from './components/DeviceSelect'
 import { Settings } from './components/Settings'
-import { ThemeToggle } from './components/ThemeToggle'
-import { LanguageToggle } from './components/LanguageToggle'
+import { TitleBar } from './components/TitleBar'
 import { LanguageProvider, useLanguage, LANG_STORAGE_KEY } from './i18n/LanguageContext'
 import { useTheme } from './hooks/useTheme'
 import { invoke, useTauriEvent } from './hooks/useTauri'
 import type { InitialState } from './types'
 
+// Entrance stagger for the main panel: runs once per launch. Decorative only —
+// transform/opacity, so it never blocks interaction.
+const panelVariants: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.04 } },
+}
+const sectionVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
+}
+
+// The core is drawn at a fixed 224px; this wrapper scales it to whatever
+// vertical room the row has left, so the window never needs to scroll.
+const CORE_SIZE = 224
+function CoreFit({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () => {
+      const { width, height } = el.getBoundingClientRect()
+      setScale(Math.max(0.55, Math.min(1, width / (CORE_SIZE + 8), height / (CORE_SIZE + 8))))
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={ref} className="grid min-h-0 min-w-0 flex-1 place-items-center self-stretch">
+      <motion.div animate={{ scale }} transition={{ type: 'spring', stiffness: 260, damping: 28 }}>
+        {children}
+      </motion.div>
+    </div>
+  )
+}
+
+function Shell() {
+  const { theme, toggle } = useTheme()
+  return (
+    // overflow-hidden at every level: the layout is sized to fit, so nothing
+    // should ever scroll — resize just redistributes space (the core scales).
+    <div className="flex h-full flex-col overflow-hidden" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+      <TitleBar theme={theme} onToggleTheme={toggle} />
+      <AppShell />
+    </div>
+  )
+}
+
 function AppShell() {
   const { t, setLang } = useLanguage()
-  const { theme, toggle: toggleTheme } = useTheme()
   const [state, setState] = useState<InitialState | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [volume, setVolume] = useState(100)
@@ -66,7 +116,7 @@ function AppShell() {
 
   if (loadError) {
     return (
-      <div className="grid h-full place-items-center px-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
+      <div className="grid flex-1 place-items-center px-6 text-center text-sm" style={{ color: 'var(--fg-muted)' }}>
         {t('loadFailed')}: {loadError}
       </div>
     )
@@ -74,7 +124,7 @@ function AppShell() {
 
   if (!state) {
     return (
-      <div className="grid h-full place-items-center" style={{ color: 'var(--fg-muted)' }}>
+      <div className="grid flex-1 place-items-center" style={{ color: 'var(--fg-muted)' }}>
         <motion.div
           className="h-8 w-8 rounded-full border-2"
           style={{ borderColor: 'var(--border)', borderTopColor: 'var(--fg)' }}
@@ -86,85 +136,75 @@ function AppShell() {
   }
 
   return (
-    <div
-      className="flex h-full flex-col gap-4 overflow-y-auto px-6 py-5"
-      style={{ background: 'var(--bg)', color: 'var(--fg)' }}
+    <motion.main
+      variants={panelVariants}
+      initial="hidden"
+      animate="show"
+      // max-w keeps the controls from stretching edge-to-edge on maximized windows.
+      className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-3 overflow-hidden px-6 pb-4 pt-1"
     >
-      {/* header */}
-      <header className="flex items-center justify-between">
-        <h1 className="text-base font-semibold tracking-tight">{t('appTitle')}</h1>
-        <div className="flex items-center gap-2">
-          <LanguageToggle />
-          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+      {/* concentric core + volume slider */}
+      <motion.section variants={sectionVariants} className="flex min-h-0 flex-1 items-center justify-center gap-10">
+        <CoreFit>
+          <ConcentricCore
+            muted={muted}
+            volumePercent={volume}
+            onToggleMute={handleToggleMute}
+            disabled={!state.platformSupported}
+          />
+        </CoreFit>
+        <div className="flex-none py-2">
+          <VolumeSlider value={volume} onChange={handleVolume} db={volumeDb} disabled={!state.platformSupported} />
         </div>
-      </header>
-
-      {/* concentric core */}
-      <div className="grid place-items-center py-2">
-        <ConcentricCore
-          muted={muted}
-          volumePercent={volume}
-          onToggleMute={handleToggleMute}
-          disabled={!state.platformSupported}
-        />
-      </div>
+      </motion.section>
 
       {/* status pill */}
-      <div className="grid place-items-center">
-        <motion.span
-          key={muted ? 'muted' : 'live'}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
-          style={{
-            background: muted
-              ? 'color-mix(in srgb, var(--danger) 14%, transparent)'
-              : 'color-mix(in srgb, var(--success) 14%, transparent)',
-            color: muted ? 'var(--danger)' : 'var(--success)',
-          }}
-        >
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ background: muted ? 'var(--danger)' : 'var(--success)' }}
-          />
-          {muted ? t('mute') : t('unmute')}
-        </motion.span>
-      </div>
-
-      {/* volume slider */}
-      <div className="flex items-center justify-center py-2">
-        <VolumeSlider
-          value={volume}
-          onChange={handleVolume}
-          db={volumeDb}
-          disabled={!state.platformSupported}
-        />
-      </div>
+      <motion.div variants={sectionVariants} className="flex justify-center">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={muted ? 'muted' : 'live'}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+            style={{
+              background: muted
+                ? 'color-mix(in srgb, var(--danger) 14%, transparent)'
+                : 'color-mix(in srgb, var(--success) 14%, transparent)',
+              color: muted ? 'var(--danger)' : 'var(--success)',
+            }}
+          >
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: muted ? 'var(--danger)' : 'var(--success)' }}
+            />
+            {muted ? t('mute') : t('unmute')}
+          </motion.span>
+        </AnimatePresence>
+      </motion.div>
 
       {/* device */}
-      <div className="flex flex-col gap-1">
+      <motion.section variants={sectionVariants} className="flex flex-col gap-1.5">
         <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
           {t('device')}
         </span>
         <DeviceSelect
           devices={state.devices}
           selectedId={state.selectedDeviceId}
-          onChange={(id) => invoke('select_device', { deviceId: id }).catch(console.error)}
+          onChange={(id) => {
+            patchState({ selectedDeviceId: id })
+            invoke('select_device', { deviceId: id }).catch(console.error)
+          }}
           disabled={!state.platformSupported}
         />
-        {!state.platformSupported ? (
-          <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-            {t('platformUnsupported')}
-          </p>
-        ) : (
-          <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-            {t('deviceNote')}
-          </p>
-        )}
-      </div>
+        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+          {state.platformSupported ? t('deviceNote') : t('platformUnsupported')}
+        </p>
+      </motion.section>
 
       {/* settings */}
-      <div className="mt-auto">
+      <motion.section variants={sectionVariants}>
         <Settings
           hotkey={state.hotkey}
           onHotkeyChange={(v) => {
@@ -197,15 +237,18 @@ function AppShell() {
             invoke('set_reference_volume', { percent: v }).catch(console.error)
           }}
         />
-      </div>
-    </div>
+      </motion.section>
+    </motion.main>
   )
 }
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AppShell />
-    </LanguageProvider>
+    // reducedMotion="user": honor the OS "reduce motion" setting globally.
+    <MotionConfig reducedMotion="user">
+      <LanguageProvider>
+        <Shell />
+      </LanguageProvider>
+    </MotionConfig>
   )
 }

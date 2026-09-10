@@ -10,6 +10,12 @@ export default defineConfig({
   server: {
     port: 8864,
     strictPort: true,
+    // `tauri dev` loads the frontend from this server, which transforms modules
+    // on demand. Warming the initial import graph up front removes the request
+    // waterfall that otherwise stretches time-to-first-paint in development.
+    warmup: {
+      clientFiles: ['./src/main.tsx', './src/App.tsx', './src/components/**/*.tsx'],
+    },
     watch: {
       ignored: ['**/src-tauri/**'],
     },

@@ -3,7 +3,8 @@
 //! On non-Windows platforms this module exposes stub implementations so the
 //! app shell still builds — audio controls degrade gracefully in the frontend.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,18 +19,83 @@ pub struct AudioInner {
     pub last_known_volume_percent: i64,
 }
 
+/// Everything `get_initial_state` needs from the device stack.
+///
+/// Probing it means initialising a COM apartment, activating the default
+/// endpoint and reading a property store per capture device — the single
+/// slowest thing the app does at startup. [`AudioController::spawn_prewarm`]
+/// gets it out of the way while the webview is still booting.
+#[derive(Debug, Clone, Default)]
+pub struct Snapshot {
+    pub muted: bool,
+    pub volume_percent: i64,
+    pub volume_db: f64,
+    pub devices: Vec<DeviceInfo>,
+}
+
+/// How long a startup snapshot stays usable. Long enough to cover a cold webview
+/// boot, short enough that a device plugged in at launch is still picked up.
+const PREWARM_TTL: Duration = Duration::from_secs(5);
+
 pub struct AudioController {
-    pub inner: Mutex<AudioInner>,
+    pub inner: Arc<Mutex<AudioInner>>,
+    prewarm: Arc<Mutex<Option<(Snapshot, Instant)>>>,
 }
 
 impl AudioController {
     pub fn new() -> Self {
         Self {
-            inner: Mutex::new(AudioInner {
+            inner: Arc::new(Mutex::new(AudioInner {
                 last_known_muted: false,
                 last_known_volume_percent: 100,
-            }),
+            })),
+            prewarm: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Probe the device stack on a worker thread, in parallel with the frontend
+    /// loading, and stash the result for the first `get_initial_state`.
+    ///
+    /// `fallback_percent` is the persisted volume, used when the device stack
+    /// cannot be reached (no capture endpoint, COM failure).
+    pub fn spawn_prewarm(&self, fallback_percent: i64) {
+        let inner = Arc::clone(&self.inner);
+        let slot = Arc::clone(&self.prewarm);
+        std::thread::spawn(move || {
+            let snapshot = win::read_snapshot(fallback_percent);
+
+            // Publish to `inner` *before* the snapshot becomes visible: the
+            // "has anything changed since?" check in `take_prewarm` compares the
+            // two, and a mutation landing in between must not be missed.
+            if let Ok(mut inner) = inner.lock() {
+                inner.last_known_muted = snapshot.muted;
+                inner.last_known_volume_percent = snapshot.volume_percent;
+            }
+            if let Ok(mut slot) = slot.lock() {
+                *slot = Some((snapshot, Instant::now()));
+            }
+        });
+    }
+
+    /// Take the startup snapshot, if it is still fresh and no audio change has
+    /// landed since it was produced.
+    ///
+    /// Consumed on first use, so later reads always go back to the device stack.
+    pub fn take_prewarm(&self) -> Option<Snapshot> {
+        let (snapshot, created) = self.prewarm.lock().ok()?.take()?;
+        if created.elapsed() > PREWARM_TTL {
+            return None;
+        }
+        // A hotkey or mute between the probe and the first read would otherwise
+        // be silently overwritten by the pre-toggle values.
+        let inner = self.inner.lock().ok()?;
+        if inner.last_known_muted != snapshot.muted
+            || inner.last_known_volume_percent != snapshot.volume_percent
+        {
+            return None;
+        }
+        drop(inner);
+        Some(snapshot)
     }
 }
 
@@ -230,6 +296,20 @@ pub mod win {
         // the frontend can disable the control gracefully.
         Ok(())
     }
+
+    /// One probe of the whole device stack. Called from the prewarm thread, so
+    /// this thread's COM apartment is initialised off the critical path.
+    pub fn read_snapshot(fallback_percent: i64) -> Snapshot {
+        let (muted, volume_percent, volume_db) = with_default_endpoint(read_endpoint_state)
+            .unwrap_or((false, fallback_percent, -96.0));
+        let devices = list_capture_devices().unwrap_or_default();
+        Snapshot {
+            muted,
+            volume_percent,
+            volume_db,
+            devices,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -258,5 +338,14 @@ pub mod win {
     }
     pub fn select_device(_: Option<&str>) -> Result<(), String> {
         Err("audio not supported on this platform".into())
+    }
+
+    pub fn read_snapshot(fallback_percent: i64) -> Snapshot {
+        Snapshot {
+            muted: false,
+            volume_percent: fallback_percent,
+            volume_db: -96.0,
+            devices: Vec::new(),
+        }
     }
 }

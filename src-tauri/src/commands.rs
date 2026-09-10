@@ -1,6 +1,6 @@
 use crate::audio::{win as audio_win, AudioController, DeviceInfo};
 use crate::config::ConfigState;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,20 +33,31 @@ pub mod audio {
 
         let platform_supported = cfg!(windows);
 
-        let (muted, volume_percent, volume_db, devices) = if platform_supported {
-            let (muted, percent, db) = audio_win::with_default_endpoint(
-                audio_win::read_endpoint_state,
-            )
-            .unwrap_or((false, cfg.last_volume_percent, -96.0));
-            let devices = audio_win::list_capture_devices().unwrap_or_default();
-            (muted, percent, db, devices)
-        } else {
-            (
+        // The startup probe normally beat the frontend here, in which case the
+        // device stack is not touched at all on this call. Fall back to reading
+        // it inline when the snapshot is missing, stale, or invalidated by an
+        // audio change that happened while the webview was loading.
+        let (muted, volume_percent, volume_db, devices) = match audio.take_prewarm() {
+            Some(snapshot) => (
+                snapshot.muted,
+                snapshot.volume_percent,
+                snapshot.volume_db,
+                snapshot.devices,
+            ),
+            None if platform_supported => {
+                let (muted, percent, db) = audio_win::with_default_endpoint(
+                    audio_win::read_endpoint_state,
+                )
+                .unwrap_or((false, cfg.last_volume_percent, -96.0));
+                let devices = audio_win::list_capture_devices().unwrap_or_default();
+                (muted, percent, db, devices)
+            }
+            None => (
                 false,
                 cfg.last_volume_percent,
                 -96.0,
                 Vec::<DeviceInfo>::new(),
-            )
+            ),
         };
 
         {
@@ -222,5 +233,62 @@ pub mod config {
         config: State<'_, ConfigState>,
     ) -> Result<(), String> {
         config.update(&app, |c| c.reference_volume_percent = percent.clamp(0, 100))
+    }
+}
+
+pub mod window {
+    use super::*;
+
+    /// Show the main window now that the frontend has painted its first frame.
+    ///
+    /// The window starts hidden (`visible: false` in tauri.conf.json), so this
+    /// hand-off is what makes it appear — with content already on screen. A
+    /// window that were shown at startup instead would flash an empty white
+    /// webview for as long as the bundle takes to boot.
+    ///
+    /// Synchronous on purpose: window calls want to run on the main thread.
+    #[tauri::command]
+    pub fn reveal_window(app: AppHandle) -> Result<(), String> {
+        if starts_hidden(&app) {
+            return Ok(());
+        }
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+        Ok(())
+    }
+
+    /// Safety net for a frontend that never reports in — a script error, a
+    /// missing asset, a webview that throttles too aggressively while hidden.
+    /// Without it the failure mode would be an app that runs with no visible
+    /// window at all.
+    ///
+    /// Deliberately short: a healthy launch reveals in a few hundred
+    /// milliseconds, and showing the window early is harmless because the
+    /// native surface is already themed and the static shell in index.html
+    /// paints from the HTML alone, without JavaScript.
+    pub fn arm_reveal_fallback(app: AppHandle) {
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+            if starts_hidden(&app) {
+                return;
+            }
+            if let Some(w) = app.get_webview_window("main") {
+                if !w.is_visible().unwrap_or(false) {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+        });
+    }
+
+    /// "Start minimized to tray" is the user's call to make, and it outranks
+    /// both the reveal and its fallback.
+    fn starts_hidden(app: &AppHandle) -> bool {
+        app.state::<ConfigState>()
+            .get()
+            .map(|c| c.start_minimized_to_tray)
+            .unwrap_or(false)
     }
 }

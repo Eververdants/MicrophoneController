@@ -50,6 +50,60 @@ function CoreFit({ children }: { children: React.ReactNode }) {
   )
 }
 
+// Shown from the first frame until `get_initial_state` lands. It mirrors the
+// panel's layout one-for-one — same column, same section heights — so the real
+// content can fade in over it without anything moving: the launch reads as
+// "filling in", not as "loading, then jumping". The static copy in index.html
+// covers the window before this even mounts, so the app is never blank.
+function ShellSkeleton() {
+  return (
+    <motion.div
+      aria-hidden
+      // Absolutely positioned and click-through: it overlays the real panel
+      // while fading out, and must not eat input during that window.
+      className="pointer-events-none absolute inset-0 mx-auto flex w-full max-w-xl flex-col gap-3 px-6 pb-4 pt-1"
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+    >
+      {/* Mirrors the panel exactly: the core slot flexes and centres, the
+          slider is pinned to the trailing edge — otherwise the slider would
+          jump sideways the moment the real content arrives. */}
+      <div className="flex min-h-0 flex-1 items-center justify-center gap-10">
+        <div className="grid min-h-0 min-w-0 flex-1 place-items-center self-stretch">
+          <div
+            className="relative h-56 w-56 rounded-full"
+            style={{ border: '1.5px solid var(--accent-soft)' }}
+          >
+            <span className="mc-skeleton absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full" />
+          </div>
+        </div>
+        <div className="flex-none py-2">
+          <div className="flex flex-col items-center gap-2.5">
+            <span className="mc-skeleton h-40 w-2 rounded-full" />
+            <span className="mc-skeleton h-8 w-14 rounded-md" />
+            <span className="mc-skeleton h-4 w-11 rounded-full" />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-center">
+        <span className="mc-skeleton h-6 w-21 rounded-full" />
+      </div>
+
+      {/* device: label + select + note, at the heights the real rows occupy */}
+      <div className="flex flex-col gap-1.5">
+        <span className="mc-skeleton h-4 w-10 rounded-full" />
+        <span className="mc-skeleton h-[38px] w-full rounded-lg" />
+        <span className="mc-skeleton h-4 w-44 rounded-full" />
+      </div>
+
+      <div>
+        <span className="mc-skeleton block h-9 w-full rounded-lg" />
+      </div>
+    </motion.div>
+  )
+}
+
 function Shell() {
   const { theme, toggle } = useTheme()
   return (
@@ -122,123 +176,119 @@ function AppShell() {
     )
   }
 
-  if (!state) {
-    return (
-      <div className="grid flex-1 place-items-center" style={{ color: 'var(--fg-muted)' }}>
-        <motion.div
-          className="h-8 w-8 rounded-full border-2"
-          style={{ borderColor: 'var(--border)', borderTopColor: 'var(--fg)' }}
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
-        />
-      </div>
-    )
-  }
-
+  // The skeleton sits absolutely under the panel and unmounts once the real
+  // content exists; holding a spinner up instead would mean staring at an empty
+  // window for the whole round-trip to the audio backend.
   return (
-    <motion.main
-      variants={panelVariants}
-      initial="hidden"
-      animate="show"
-      // max-w keeps the controls from stretching edge-to-edge on maximized windows.
-      className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-3 overflow-hidden px-6 pb-4 pt-1"
-    >
-      {/* concentric core + volume slider */}
-      <motion.section variants={sectionVariants} className="flex min-h-0 flex-1 items-center justify-center gap-10">
-        <CoreFit>
-          <ConcentricCore
-            muted={muted}
-            volumePercent={volume}
-            onToggleMute={handleToggleMute}
-            disabled={!state.platformSupported}
-          />
-        </CoreFit>
-        <div className="flex-none py-2">
-          <VolumeSlider value={volume} onChange={handleVolume} db={volumeDb} disabled={!state.platformSupported} />
-        </div>
-      </motion.section>
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      <AnimatePresence>{!state && <ShellSkeleton key="skeleton" />}</AnimatePresence>
 
-      {/* status pill */}
-      <motion.div variants={sectionVariants} className="flex justify-center">
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span
-            key={muted ? 'muted' : 'live'}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
-            style={{
-              background: muted
-                ? 'color-mix(in srgb, var(--danger) 14%, transparent)'
-                : 'color-mix(in srgb, var(--success) 14%, transparent)',
-              color: muted ? 'var(--danger)' : 'var(--success)',
-            }}
-          >
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ background: muted ? 'var(--danger)' : 'var(--success)' }}
+      {state && (
+        <motion.main
+          variants={panelVariants}
+          initial="hidden"
+          animate="show"
+          // max-w keeps the controls from stretching edge-to-edge on maximized windows.
+          className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-3 overflow-hidden px-6 pb-4 pt-1"
+        >
+          {/* concentric core + volume slider */}
+          <motion.section variants={sectionVariants} className="flex min-h-0 flex-1 items-center justify-center gap-10">
+            <CoreFit>
+              <ConcentricCore
+                muted={muted}
+                volumePercent={volume}
+                onToggleMute={handleToggleMute}
+                disabled={!state.platformSupported}
+              />
+            </CoreFit>
+            <div className="flex-none py-2">
+              <VolumeSlider value={volume} onChange={handleVolume} db={volumeDb} disabled={!state.platformSupported} />
+            </div>
+          </motion.section>
+
+          {/* status pill */}
+          <motion.div variants={sectionVariants} className="flex justify-center">
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={muted ? 'muted' : 'live'}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+                style={{
+                  background: muted
+                    ? 'color-mix(in srgb, var(--danger) 14%, transparent)'
+                    : 'color-mix(in srgb, var(--success) 14%, transparent)',
+                  color: muted ? 'var(--danger)' : 'var(--success)',
+                }}
+              >
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: muted ? 'var(--danger)' : 'var(--success)' }}
+                />
+                {muted ? t('mute') : t('unmute')}
+              </motion.span>
+            </AnimatePresence>
+          </motion.div>
+
+          {/* device */}
+          <motion.section variants={sectionVariants} className="flex flex-col gap-1.5">
+            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+              {t('device')}
+            </span>
+            <DeviceSelect
+              devices={state.devices}
+              selectedId={state.selectedDeviceId}
+              onChange={(id) => {
+                patchState({ selectedDeviceId: id })
+                invoke('select_device', { deviceId: id }).catch(console.error)
+              }}
+              disabled={!state.platformSupported}
             />
-            {muted ? t('mute') : t('unmute')}
-          </motion.span>
-        </AnimatePresence>
-      </motion.div>
+            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+              {state.platformSupported ? t('deviceNote') : t('platformUnsupported')}
+            </p>
+          </motion.section>
 
-      {/* device */}
-      <motion.section variants={sectionVariants} className="flex flex-col gap-1.5">
-        <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-          {t('device')}
-        </span>
-        <DeviceSelect
-          devices={state.devices}
-          selectedId={state.selectedDeviceId}
-          onChange={(id) => {
-            patchState({ selectedDeviceId: id })
-            invoke('select_device', { deviceId: id }).catch(console.error)
-          }}
-          disabled={!state.platformSupported}
-        />
-        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-          {state.platformSupported ? t('deviceNote') : t('platformUnsupported')}
-        </p>
-      </motion.section>
-
-      {/* settings */}
-      <motion.section variants={sectionVariants}>
-        <Settings
-          hotkey={state.hotkey}
-          onHotkeyChange={(v) => {
-            patchState({ hotkey: v })
-            invoke('set_hotkey', { hotkey: v }).catch(console.error)
-          }}
-          startMinimized={state.startMinimizedToTray}
-          onStartMinimizedChange={(v) => {
-            patchState({ startMinimizedToTray: v })
-            invoke('set_start_minimized', { value: v }).catch(console.error)
-          }}
-          closeToTray={state.minimizeToTrayOnClose}
-          onCloseToTrayChange={(v) => {
-            patchState({ minimizeToTrayOnClose: v })
-            invoke('set_close_to_tray', { value: v }).catch(console.error)
-          }}
-          zeroVolumeMutes={state.volumeZeroMutes}
-          onZeroVolumeMutesChange={(v) => {
-            patchState({ volumeZeroMutes: v })
-            invoke('set_volume_zero_mutes', { value: v }).catch(console.error)
-          }}
-          normalize={state.normalizeVolume}
-          onNormalizeChange={(v) => {
-            patchState({ normalizeVolume: v })
-            invoke('set_normalize', { value: v }).catch(console.error)
-          }}
-          referenceVolume={state.referenceVolumePercent}
-          onReferenceVolumeChange={(v) => {
-            patchState({ referenceVolumePercent: v })
-            invoke('set_reference_volume', { percent: v }).catch(console.error)
-          }}
-        />
-      </motion.section>
-    </motion.main>
+          {/* settings */}
+          <motion.section variants={sectionVariants}>
+            <Settings
+              hotkey={state.hotkey}
+              onHotkeyChange={(v) => {
+                patchState({ hotkey: v })
+                invoke('set_hotkey', { hotkey: v }).catch(console.error)
+              }}
+              startMinimized={state.startMinimizedToTray}
+              onStartMinimizedChange={(v) => {
+                patchState({ startMinimizedToTray: v })
+                invoke('set_start_minimized', { value: v }).catch(console.error)
+              }}
+              closeToTray={state.minimizeToTrayOnClose}
+              onCloseToTrayChange={(v) => {
+                patchState({ minimizeToTrayOnClose: v })
+                invoke('set_close_to_tray', { value: v }).catch(console.error)
+              }}
+              zeroVolumeMutes={state.volumeZeroMutes}
+              onZeroVolumeMutesChange={(v) => {
+                patchState({ volumeZeroMutes: v })
+                invoke('set_volume_zero_mutes', { value: v }).catch(console.error)
+              }}
+              normalize={state.normalizeVolume}
+              onNormalizeChange={(v) => {
+                patchState({ normalizeVolume: v })
+                invoke('set_normalize', { value: v }).catch(console.error)
+              }}
+              referenceVolume={state.referenceVolumePercent}
+              onReferenceVolumeChange={(v) => {
+                patchState({ referenceVolumePercent: v })
+                invoke('set_reference_volume', { percent: v }).catch(console.error)
+              }}
+            />
+          </motion.section>
+        </motion.main>
+      )}
+    </div>
   )
 }
 

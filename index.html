@@ -1,13 +1,319 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/icon-128.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MicrophoneController</title>
+
+    <!--
+      Launch critical path — read this before touching anything below.
+
+      The webview paints an empty document before the bundle is parsed and
+      executed, and its default surface is white. That is the launch flash.
+      Everything in this head runs while the HTML is still being parsed, i.e.
+      before the stylesheet and the module script, so the first painted frame is
+      already the app's own background and shell.
+
+      Three pieces, in this order on purpose:
+        1. theme bootstrap  — resolves light/dark before anything paints
+        2. critical CSS     — themed background + geometry for the static shell
+        3. #root markup     — a static copy of the loading shell
+
+      React clears `#root` and takes over on mount. Keep the static shell
+      structurally close to `ShellSkeleton` in src/App.tsx so the hand-off is
+      invisible rather than a second, smaller flicker.
+    -->
+    <script>
+      // Mirror of getInitialTheme() in src/hooks/useTheme.ts, duplicated here
+      // because it has to run before the first paint: persisted choice first,
+      // OS preference as the fallback.
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('mc.theme')
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+          document.documentElement.setAttribute('data-theme', theme)
+        } catch (e) {
+          // localStorage can be unavailable — the CSS default below applies.
+        }
+      })()
+    </script>
+
+    <style>
+      /* Colours mirror --bg / --accent-soft in src/styles/index.css. Keep in sync. */
+      html {
+        background: #f7f7f5;
+        --boot-surface: #e8e8e3;
+        --boot-ring: #e3e3de;
+      }
+      html[data-theme='dark'] {
+        background: #0e0e0c;
+        --boot-surface: #2a2a25;
+        --boot-ring: #2a2a25;
+      }
+
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+      }
+
+      /* index.css sets this, but it has not loaded yet in the window these
+         rules exist for — without it the padded column below overflows. */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        overflow: hidden;
+        font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+      }
+
+      /* Static loading shell. Geometry mirrors the real panel: 40px title bar,
+         a 576px content column with 24px gutters, a 224px core and a 160px
+         slider track. */
+      .boot-shell {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      .boot-bar {
+        display: flex;
+        align-items: center;
+        flex: none;
+        height: 40px;
+        padding-left: 12px;
+        padding-right: 8px;
+      }
+
+      .boot-block {
+        display: block;
+        background: var(--boot-surface);
+        animation: boot-pulse 1.6s ease-in-out infinite;
+      }
+
+      .boot-brand {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+      }
+
+      .boot-title {
+        width: 104px;
+        height: 8px;
+        margin-left: 8px;
+        border-radius: 4px;
+      }
+
+      .boot-toggles {
+        display: flex;
+        gap: 8px;
+        margin-left: auto;
+      }
+
+      /* 56x28 and 48x28: the language and theme toggles' real footprint. */
+      .boot-toggle {
+        height: 28px;
+        border-radius: 9999px;
+      }
+
+      .boot-toggle--language {
+        width: 56px;
+      }
+
+      .boot-toggle--theme {
+        width: 48px;
+      }
+
+      .boot-window-buttons {
+        display: flex;
+        align-self: stretch;
+      }
+
+      .boot-window-buttons span {
+        display: block;
+        width: 44px;
+        height: 100%;
+        animation-delay: -0.4s;
+      }
+
+      .boot-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        max-width: 576px;
+        min-height: 0;
+        margin: 0 auto;
+        padding: 4px 24px 16px;
+      }
+
+      .boot-stage {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        justify-content: center;
+        gap: 40px;
+        min-height: 0;
+      }
+
+      /* The core flexes and centres while the slider stays pinned to the
+         trailing edge — the same split the real panel uses. */
+      .boot-core-slot {
+        display: grid;
+        flex: 1;
+        place-items: center;
+        align-self: stretch;
+        min-width: 0;
+      }
+
+      .boot-core {
+        position: relative;
+        width: 224px;
+        height: 224px;
+        border-radius: 50%;
+        border: 1.5px solid var(--boot-ring);
+      }
+
+      .boot-core span {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 112px;
+        height: 112px;
+        margin: -56px 0 0 -56px;
+        border-radius: 50%;
+      }
+
+      .boot-slider {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 0;
+      }
+
+      .boot-slider-track {
+        width: 8px;
+        height: 160px;
+        border-radius: 9999px;
+      }
+
+      /* 56x32 and 44x16: the volume percentage and its dB readout. */
+      .boot-readout {
+        width: 56px;
+        height: 32px;
+        border-radius: 6px;
+      }
+
+      .boot-readout-sm {
+        width: 44px;
+        height: 16px;
+        border-radius: 5px;
+      }
+
+      .boot-status {
+        align-self: center;
+        width: 84px;
+        height: 24px;
+        border-radius: 9999px;
+      }
+
+      .boot-field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .boot-field {
+        width: 100%;
+        height: 38px;
+        border-radius: 8px;
+      }
+
+      .boot-row {
+        width: 100%;
+        height: 36px;
+        border-radius: 8px;
+      }
+
+      .boot-label {
+        width: 40px;
+        height: 16px;
+        border-radius: 5px;
+      }
+
+      .boot-note {
+        width: 176px;
+        height: 16px;
+        border-radius: 5px;
+      }
+
+      @keyframes boot-pulse {
+        50% {
+          opacity: 0.55;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .boot-block {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-shell">
+        <div class="boot-bar">
+          <span class="boot-block boot-brand"></span>
+          <span class="boot-block boot-title"></span>
+          <span class="boot-toggles">
+            <span class="boot-block boot-toggle boot-toggle--language"></span>
+            <span class="boot-block boot-toggle boot-toggle--theme"></span>
+          </span>
+          <span class="boot-window-buttons">
+            <span class="boot-block"></span>
+            <span class="boot-block"></span>
+            <span class="boot-block"></span>
+          </span>
+        </div>
+
+        <div class="boot-body">
+          <div class="boot-stage">
+            <div class="boot-core-slot">
+              <div class="boot-core"><span class="boot-block"></span></div>
+            </div>
+            <div class="boot-slider">
+              <span class="boot-block boot-slider-track"></span>
+              <span class="boot-block boot-readout"></span>
+              <span class="boot-block boot-readout-sm"></span>
+            </div>
+          </div>
+          <span class="boot-block boot-status"></span>
+          <div class="boot-field-group">
+            <span class="boot-block boot-label"></span>
+            <span class="boot-block boot-field"></span>
+            <span class="boot-block boot-note"></span>
+          </div>
+          <span class="boot-block boot-row"></span>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -22,6 +22,7 @@
         "shadow": true,
         "center": true,
         "visible": false,
+        "backgroundColor": [14, 14, 12, 255],
         "skipTaskbar": false,
         "fullscreen": false,
         "alwaysOnTop": false,

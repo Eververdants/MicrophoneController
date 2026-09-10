@@ -67,3 +67,23 @@ body {
   background: var(--border);
   border-radius: 3px;
 }
+
+/* Loading skeleton. The geometry lives in the components; this only supplies
+   the fill and the "still working" pulse. index.html carries a static copy of
+   the same shell for the frames before the bundle executes. */
+@keyframes mc-skeleton-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.mc-skeleton {
+  background: var(--accent-soft);
+  animation: mc-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-skeleton {
+    animation: none;
+  }
+}

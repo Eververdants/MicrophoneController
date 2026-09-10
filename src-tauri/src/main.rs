@@ -39,12 +39,33 @@ fn main() {
             let cfg = app.state::<config::ConfigState>().get()?;
             tray::build(app.handle())?;
             hotkey::init(app.handle(), &cfg.hotkey)?;
+
+            // Probe the audio device stack on a worker thread so it overlaps
+            // with the webview booting instead of queueing behind it. The first
+            // `get_initial_state` then returns a cached snapshot.
+            app.state::<audio::AudioController>()
+                .spawn_prewarm(cfg.last_volume_percent);
+
             if let Some(w) = app.get_webview_window("main") {
+                // The webview surface is white until the page paints its first
+                // frame. Colour the native window *and* webview to the theme
+                // background so the very first frame the user can see is the
+                // app's own colour rather than a blank white rectangle. The
+                // frontend's critical CSS continues from there.
+                let background = match w.theme() {
+                    Ok(tauri::Theme::Light) => tauri::window::Color(0xf7, 0xf7, 0xf5, 0xff),
+                    _ => tauri::window::Color(0x0e, 0x0e, 0x0c, 0xff),
+                };
+                let _ = w.set_background_color(Some(background));
+
                 if cfg.start_minimized_to_tray {
                     let _ = w.hide();
                 } else {
-                    let _ = w.show();
-                    let _ = w.set_focus();
+                    // Deliberately not shown here. The window stays hidden until
+                    // the frontend reports its first paint, so it can never be
+                    // seen empty; `arm_reveal_fallback` covers a frontend that
+                    // never reports in.
+                    commands::window::arm_reveal_fallback(app.handle().clone());
                 }
             }
             Ok(())
@@ -64,6 +85,7 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            commands::window::reveal_window,
             commands::audio::get_initial_state,
             commands::audio::toggle_mute,
             commands::audio::set_mute,

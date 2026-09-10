@@ -6,10 +6,9 @@ interface DeviceSelectProps {
   devices: DeviceInfo[]
   selectedId: string | null
   onChange: (id: string | null) => void
-  disabled?: boolean
 }
 
-export function DeviceSelect({ devices, selectedId, onChange, disabled }: DeviceSelectProps) {
+export function DeviceSelect({ devices, selectedId, onChange }: DeviceSelectProps) {
   const { t } = useLanguage()
   const options = [
     { value: '', label: t('defaultDevice') },
@@ -20,7 +19,11 @@ export function DeviceSelect({ devices, selectedId, onChange, disabled }: Device
       value={selectedId ?? ''}
       options={options}
       onChange={(id) => onChange(id || null)}
-      disabled={disabled || devices.length === 0}
+      // `select_device` is a no-op on every platform (Core Audio does not permit
+      // programmatic default-endpoint reassignment), so the control must stay
+      // disabled — it only reflects the current device. Switching happens in
+      // system sound settings (see the note below).
+      disabled
       ariaLabel={t('device')}
     />
   )

@@ -11,7 +11,10 @@ function getInitialTheme(): Theme {
 }
 
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme)
+  // Lazy initializer: `getInitialTheme` touches `localStorage` + `matchMedia`,
+  // so it must run once only — passing the function lets useState call it lazily
+  // instead of re-evaluating on every render.
+  const [theme, setTheme] = useState<Theme>(() => getInitialTheme())
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)

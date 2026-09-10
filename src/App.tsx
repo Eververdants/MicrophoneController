@@ -244,7 +244,6 @@ function AppShell() {
                 patchState({ selectedDeviceId: id })
                 invoke('select_device', { deviceId: id }).catch(console.error)
               }}
-              disabled={!state.platformSupported}
             />
             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
               {state.platformSupported ? t('deviceNote') : t('platformUnsupported')}

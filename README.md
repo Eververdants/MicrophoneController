@@ -132,7 +132,7 @@ MicrophoneController/
 └── icon.png                    # Application icon
 ```
 
-The product landing page is not part of this repository; its sources are kept in a companion mirror (`MicrophoneController-website`) and the built page is deployed to GitHub Pages (see [Website](#website)).
+The product landing page lives on the [`website` branch](https://github.com/Eververdants/MicrophoneController/tree/website) of this repository; the built page is deployed to GitHub Pages (see [Website](#website)).
 
 ## Getting Started
 

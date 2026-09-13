@@ -132,7 +132,7 @@ MicrophoneController/
 └── icon.png                    # 应用图标
 ```
 
-产品官网源码不在本仓库内，保存在配套镜像目录（`MicrophoneController-website`）中，构建后的页面部署到 GitHub Pages（见[产品官网](#产品官网)）。
+产品官网源码位于本仓库的 [`website` 分支](https://github.com/Eververdants/MicrophoneController/tree/website)，构建后的页面部署到 GitHub Pages（见[产品官网](#产品官网)）。
 
 ## 快速开始
 

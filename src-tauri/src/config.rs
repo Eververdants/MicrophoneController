@@ -121,7 +121,13 @@ pub fn load_config(app: &AppHandle) -> Result<AppConfig, String> {
         }
     };
     match serde_json::from_str(&data) {
-        Ok(cfg) => Ok(cfg),
+        Ok(mut cfg) => {
+            // The file is user- and disk-editable, so it gets the same clamping
+            // an imported config gets; nothing else bounds what a hand edit put
+            // in there.
+            sanitize(&mut cfg);
+            Ok(cfg)
+        }
         Err(e) => {
             log::warn!(
                 "config.json invalid ({e}); using defaults, original kept as config.json.bak"

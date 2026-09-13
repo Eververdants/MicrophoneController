@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { invoke } from './useTauri'
 import type { ThemePreference } from '../types'
 
 export type Theme = 'light' | 'dark'
@@ -51,6 +52,11 @@ export function useTheme() {
       return
     }
     localStorage.setItem(THEME_CACHE_KEY, preference)
+    // Mirrors LanguageContext: the backend config keeps its own copy (it feeds
+    // a first launch and the OSD window), so a change must land there too.
+    invoke('set_theme', { value: preference }).catch((err) =>
+      console.error('set_theme failed:', err),
+    )
   }, [preference])
 
   const setPreference = useCallback((next: ThemePreference) => setPreferenceState(next), [])

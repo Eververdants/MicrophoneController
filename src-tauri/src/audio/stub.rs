@@ -67,6 +67,7 @@ pub fn read_snapshot(fallback_percent: i64, _device_id: Option<&str>) -> Snapsho
             volume_db: -96.0,
             range: VolumeRange::default(),
             channel_count: 1,
+            balance: 0,
         },
         devices: Vec::new(),
         in_use: Vec::new(),

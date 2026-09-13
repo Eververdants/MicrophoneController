@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion, type Variants } from 'motion/react'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { ConcentricCore } from './components/ConcentricCore'
+import { CoreFit } from './components/CoreFit'
 import { VolumeSlider } from './components/VolumeSlider'
 import { DeviceSelect } from './components/DeviceSelect'
 import { Settings } from './components/Settings'
@@ -9,6 +10,7 @@ import { TitleBar } from './components/TitleBar'
 import { ChevronRightIcon, SlidersIcon } from './components/icons'
 import { LanguageProvider, useLanguage, LANG_STORAGE_KEY } from './i18n/LanguageContext'
 import { useTheme, type ThemePreference } from './hooks/useTheme'
+import { usePersist } from './hooks/usePersist'
 import { invoke, useTauriEvent } from './hooks/useTauri'
 import type { AudioStatus, ConfigSnapshot, DeviceInfo, EndpointDetails, InitialState } from './types'
 
@@ -25,35 +27,6 @@ const panelVariants: Variants = {
 const sectionVariants: Variants = {
   hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
-}
-
-// The core is drawn at a fixed 224px; this wrapper scales it to whatever
-// vertical room the row has left, so the window never needs to scroll.
-const CORE_SIZE = 224
-function CoreFit({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const update = () => {
-      const { width, height } = el.getBoundingClientRect()
-      setScale(Math.max(0.55, Math.min(1, width / (CORE_SIZE + 8), height / (CORE_SIZE + 8))))
-    }
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  return (
-    <div ref={ref} className="grid min-h-0 min-w-0 flex-1 place-items-center self-stretch">
-      <motion.div animate={{ scale }} transition={{ type: 'spring', stiffness: 260, damping: 28 }}>
-        {children}
-      </motion.div>
-    </div>
-  )
 }
 
 // Shown from the first frame until `get_initial_state` lands. It mirrors the
@@ -145,6 +118,14 @@ function AppShell({ themePreference, onThemePreference }: AppShellProps) {
   // that replaces it (no modal overlay — see Settings).
   const [view, setView] = useState<'main' | 'settings'>('main')
   const [state, setState] = useState<InitialState | null>(null)
+  // Fresh snapshot for `usePersist` rollbacks: a ref is read synchronously when
+  // a command is dispatched, so it always reflects the state the user acted on
+  // rather than a closure-captured stale copy. Synced in an effect (not during
+  // render) so it is current by the time any event handler runs.
+  const stateRef = useRef<InitialState | null>(null)
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [volume, setVolume] = useState(100)
   const [volumeDb, setVolumeDb] = useState(-96)
@@ -242,14 +223,18 @@ function AppShell({ themePreference, onThemePreference }: AppShellProps) {
 
   const handleVolume = useCallback(
     async (value: number) => {
+      const prevDb = volumeDb
       setVolume(value)
       try {
         setVolumeDb(await invoke<number>('set_volume', { percent: value }))
       } catch (err) {
+        // The backend kept the old gain, so the dB readout has to roll back to
+        // match — otherwise the slider shows a volume the device is not at.
+        setVolumeDb(prevDb)
         reportError(err)
       }
     },
-    [reportError],
+    [reportError, volumeDb],
   )
 
   const step = state?.scrollStepPercent ?? 5
@@ -340,20 +325,9 @@ function AppShell({ themePreference, onThemePreference }: AppShellProps) {
   )
 
   // --- settings -----------------------------------------------------------
-  const persist = useCallback(
-    (
-      values: Partial<InitialState>,
-      command: string,
-      args: Record<string, unknown>,
-      onApplied?: (result: unknown) => void,
-    ) => {
-      patch(values)
-      invoke(command, args)
-        .then((result) => onApplied?.(result))
-        .catch(reportError)
-    },
-    [patch, reportError],
-  )
+  // Optimistic: the UI flips immediately and rolls back the affected fields if
+  // the backend refuses the change. See usePersist for the rollback semantics.
+  const persist = usePersist(patch, reportError, () => stateRef.current)
 
   const handleHotkey = useCallback(
     async (value: string) => {

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { invoke } from '../hooks/useTauri'
 import { translations, type Lang, type TranslationKey } from './translations'
+import { readStoredLang } from './lang'
 
 interface LanguageContextValue {
   lang: Lang
@@ -13,10 +14,9 @@ const LanguageContext = createContext<LanguageContextValue | null>(null)
 export const LANG_STORAGE_KEY = 'mc.lang'
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(() => {
-    const stored = localStorage.getItem(LANG_STORAGE_KEY)
-    return stored === 'en' || stored === 'zh-CN' ? stored : 'zh-CN'
-  })
+  // Single owner for the persisted-language read: the overlay window (which has
+  // no provider tree) reads the same key via readStoredLang().
+  const [lang, setLangState] = useState<Lang>(readStoredLang)
   // Skip the mount effect so startup doesn't rewrite the same value to config.
   const firstRun = useRef(true)
 

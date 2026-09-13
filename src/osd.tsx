@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { listen } from '@tauri-apps/api/event'
 import { invoke } from './hooks/useTauri'
 import { translations } from './i18n/translations'
+import { readStoredLang } from './i18n/lang'
 import { MicIcon, MicOffIcon, VolumeIcon } from './components/icons'
 import './styles/index.css'
 
@@ -20,9 +21,10 @@ interface Shown {
   payload: OsdPayload
 }
 
-// The overlay is its own window with no provider tree. Reading the persisted
-// language directly avoids standing up the whole i18n context for two strings.
-const lang = localStorage.getItem('mc.lang') === 'en' ? 'en' : 'zh-CN'
+// The overlay is its own window with no provider tree, so it reads the persisted
+// language directly via the shared helper rather than standing up the whole
+// i18n context for two strings.
+const lang = readStoredLang()
 const t = translations[lang]
 
 function Overlay() {

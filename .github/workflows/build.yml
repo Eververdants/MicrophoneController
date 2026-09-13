@@ -16,70 +16,76 @@ permissions:
   pages: write
   id-token: write
 
-# ============================================================
-# Job 1: Build desktop (Tauri) — only on tag push
-# ============================================================
-build-desktop:
-  if: startsWith(github.ref, 'refs/tags/v')
-  strategy:
-    fail-fast: false
-    matrix:
-      include:
-        - platform: windows-latest
-          args: ''
-        - platform: macos-latest
-          args: '--target universal-apple-darwin'
-        - platform: ubuntu-22.04
-          args: ''
-  runs-on: ${{ matrix.platform }}
-  steps:
-    - uses: actions/checkout@v4
+jobs:
+  # ============================================================
+  # Job 1: Build desktop (Tauri) — only on tag push
+  # ============================================================
+  build-desktop:
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ''
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+          - platform: ubuntu-22.04
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 22
-        cache: npm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
-    - name: Install Rust stable
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.platform == 'macos-latest' && 'universal-apple-darwin' || '' }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
-    - name: Install system deps (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          libwebkit2gtk-4.1-dev \
-          libappindicator3-dev \
-          librsvg2-dev \
-          patchelf \
-          libxdo-dev \
-          libssl-dev \
-          libgtk-3-dev \
-          libsoup-3.0-dev
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'universal-apple-darwin' || '' }}
 
-    - name: Install Node deps
-      run: npm ci
+      - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libsoup-3.0-dev
 
-    - name: Build Tauri
-      uses: tauri-apps/tauri-action@v0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tagName: ${{ github.ref_name }}
-        releaseName: ${{ github.ref_name }}
-        releaseBody: 'See the assets to download and install this version.'
-        releaseDraft: false
-        prerelease: false
-        args: ${{ matrix.args }}
-        projectPath: .
-        tauriScript: npm run tauri
+      - name: Install Node deps
+        run: pnpm install --frozen-lockfile
 
-# ============================================================
-# Job 2: Build website (from `website` branch)
-# ============================================================
-build-website:
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: ${{ github.ref_name }}
+          releaseBody: 'See the assets to download and install this version.'
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+          projectPath: .
+          tauriScript: pnpm run tauri
+
+  # ============================================================
+  # Job 2: Build website (from `website` branch)
+  # ============================================================
+  build-website:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,17 +109,17 @@ build-website:
         with:
           path: dist
 
-# ============================================================
-# Job 3: Deploy GitHub Pages
-# ============================================================
-deploy-pages:
-  needs: build-website
-  if: always() && !cancelled() && needs.build-website.result == 'success'
-  runs-on: ubuntu-latest
-  environment:
-    name: github-pages
-    url: ${{ steps.deployment.outputs.page_url }}
-  steps:
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+  # ============================================================
+  # Job 3: Deploy GitHub Pages
+  # ============================================================
+  deploy-pages:
+    needs: build-website
+    if: always() && !cancelled() && needs.build-website.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

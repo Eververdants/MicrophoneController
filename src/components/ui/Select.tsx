@@ -88,16 +88,16 @@ export function Select({ value, options, onChange, disabled, ariaLabel }: Select
         else toggleOpen()
         break
       case 'Home':
-        if (open) {
-          e.preventDefault()
-          setActive(0)
-        }
+        // Arrows open the list; Home/End should too, then jump — otherwise they
+        // silently do nothing while every other navigation key opens it.
+        e.preventDefault()
+        if (!open) toggleOpen()
+        else setActive(0)
         break
       case 'End':
-        if (open) {
-          e.preventDefault()
-          setActive(last)
-        }
+        e.preventDefault()
+        if (!open) toggleOpen()
+        else setActive(last)
         break
     }
   }

@@ -1,5 +1,5 @@
 import { motion, useSpring, useTransform } from 'motion/react'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 interface ConcentricCoreProps {
   muted: boolean
@@ -55,30 +55,56 @@ export function ConcentricCore({
   // also means zero React re-renders while metering.
   const arcRef = useRef<SVGCircleElement>(null)
   const target = useRef(0)
+  // The level the loop is currently drawing, kept in a ref so the sweep carries
+  // on from frame to frame without re-reading the DOM attribute.
+  const level = useRef(0)
 
+  // The frame loop self-cancels once the level decays to an idle track (no more
+  // re-renders, no more rAF cost) and restarts the next time a fresh peak lands.
+  // `frameRef` holds the live id so a second re-arm can't spawn a second loop.
+  const frameRef = useRef(0)
+  const startLoop = useCallback(() => {
+    if (frameRef.current) return
+    const tick = () => {
+      level.current =
+        target.current > level.current ? target.current : level.current * RELEASE
+      const arc = arcRef.current
+      if (arc) {
+        arc.style.strokeDashoffset = String(
+          LEVEL_CIRCUMFERENCE * (1 - Math.min(1, level.current)),
+        )
+      }
+      if (level.current < 0.001) {
+        level.current = 0
+        if (arc) arc.style.strokeDashoffset = String(LEVEL_CIRCUMFERENCE)
+        frameRef.current = 0
+        return
+      }
+      frameRef.current = requestAnimationFrame(tick)
+    }
+    frameRef.current = requestAnimationFrame(tick)
+  }, [])
+
+  // A fresh peak both sets the target and, if the loop has gone idle, re-arms it.
   useEffect(() => {
     target.current = peak
-  }, [peak])
+    if (meterEnabled && peak > 0) startLoop()
+  }, [peak, meterEnabled, startLoop])
 
   useEffect(() => {
     if (!meterEnabled) {
       target.current = 0
+      level.current = 0
+      if (frameRef.current) cancelAnimationFrame(frameRef.current)
+      frameRef.current = 0
       return
     }
-    let frame = 0
-    let current = 0
-    const tick = () => {
-      current = target.current > current ? target.current : current * RELEASE
-      if (current < 0.001) current = 0
-      const arc = arcRef.current
-      if (arc) {
-        arc.style.strokeDashoffset = String(LEVEL_CIRCUMFERENCE * (1 - Math.min(1, current)))
-      }
-      frame = requestAnimationFrame(tick)
+    startLoop()
+    return () => {
+      if (frameRef.current) cancelAnimationFrame(frameRef.current)
+      frameRef.current = 0
     }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
-  }, [meterEnabled])
+  }, [meterEnabled, startLoop])
 
   return (
     <button

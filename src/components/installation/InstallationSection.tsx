@@ -4,11 +4,15 @@ import { useLanguage } from '../../i18n/LanguageContext'
 import styles from './InstallationSection.module.css'
 
 const codeLines = [
-  { text: '# Install dependencies', type: 'comment' },
-  { text: 'pip install -r app/requirements.txt', type: 'command' },
+  { text: '# Clone the repository', type: 'comment' },
+  { text: 'git clone https://github.com/Eververdants/MicrophoneController.git', type: 'command' },
+  { text: 'cd MicrophoneController', type: 'command' },
   { text: '', type: 'comment' },
-  { text: '# Run the application', type: 'comment' },
-  { text: 'python app/app.py', type: 'command' },
+  { text: '# Install dependencies', type: 'comment' },
+  { text: 'pnpm install', type: 'command' },
+  { text: '', type: 'comment' },
+  { text: '# Run in development', type: 'comment' },
+  { text: 'pnpm tauri dev', type: 'command' },
 ]
 
 export default function InstallationSection() {

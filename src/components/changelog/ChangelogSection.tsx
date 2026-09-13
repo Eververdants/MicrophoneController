@@ -7,37 +7,37 @@ export default function ChangelogSection() {
 
   const entries = [
     {
-      versionKey: 'changelog.v4.title',
-      dateKey: 'changelog.v4.date',
-      itemPrefix: 'changelog.v4.item',
-      itemCount: 8,
+      versionKey: 'changelog.v1.title',
+      dateKey: 'changelog.v1.date',
+      itemPrefix: 'changelog.v1.item',
+      itemCount: 12,
       isLatest: true,
     },
     {
-      versionKey: 'changelog.v3.title',
-      dateKey: 'changelog.v3.date',
-      itemPrefix: 'changelog.v3.item',
+      versionKey: 'changelog.v0_3.title',
+      dateKey: 'changelog.v0_3.date',
+      itemPrefix: 'changelog.v0_3.item',
       itemCount: 8,
       isLatest: false,
     },
     {
-      versionKey: 'changelog.v2_1.title',
-      dateKey: 'changelog.v2_1.date',
-      itemPrefix: 'changelog.v2_1.item',
+      versionKey: 'changelog.v0_2_1.title',
+      dateKey: 'changelog.v0_2_1.date',
+      itemPrefix: 'changelog.v0_2_1.item',
       itemCount: 2,
       isLatest: false,
     },
     {
-      versionKey: 'changelog.v2.title',
-      dateKey: 'changelog.v2.date',
-      itemPrefix: 'changelog.v2.item',
+      versionKey: 'changelog.v0_2.title',
+      dateKey: 'changelog.v0_2.date',
+      itemPrefix: 'changelog.v0_2.item',
       itemCount: 10,
       isLatest: false,
     },
     {
-      versionKey: 'changelog.v1.title',
-      dateKey: 'changelog.v1.date',
-      itemPrefix: 'changelog.v1.item',
+      versionKey: 'changelog.v0_1.title',
+      dateKey: 'changelog.v0_1.date',
+      itemPrefix: 'changelog.v0_1.item',
       itemCount: 5,
       isLatest: false,
     },
@@ -55,6 +55,7 @@ export default function ChangelogSection() {
         <span className={styles.tag}>{t('changelog.tag')}</span>
         <h2 className={styles.title}>{t('changelog.title')}</h2>
         <div className={styles.goldBar} />
+        <p className={styles.note}>{t('changelog.note')}</p>
       </motion.div>
 
       <motion.div

@@ -78,6 +78,69 @@ const features = [
       </svg>
     ),
   },
+  {
+    titleKey: 'features.meter.title',
+    descKey: 'features.meter.desc',
+    icon: (
+      <svg {...iconProps} className={styles.icon}>
+        <polyline points="2 13 6 13 9 5 13 19 16 11 18 13 22 13" />
+      </svg>
+    ),
+  },
+  {
+    titleKey: 'features.apps.title',
+    descKey: 'features.apps.desc',
+    icon: (
+      <svg {...iconProps} className={styles.icon}>
+        <path d="M9 6h12" />
+        <path d="M9 12h12" />
+        <path d="M9 18h12" />
+        <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" />
+        <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
+    titleKey: 'features.overlay.title',
+    descKey: 'features.overlay.desc',
+    icon: (
+      <svg {...iconProps} className={styles.icon}>
+        <rect x="2" y="4" width="20" height="15" rx="2" ry="2" />
+        <rect x="12" y="12" width="7" height="4" rx="1" ry="1" />
+      </svg>
+    ),
+  },
+  {
+    titleKey: 'features.sync.title',
+    descKey: 'features.sync.desc',
+    icon: (
+      <svg {...iconProps} className={styles.icon}>
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" />
+        <path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      </svg>
+    ),
+  },
+  {
+    titleKey: 'features.theme.title',
+    descKey: 'features.theme.desc',
+    icon: (
+      <svg {...iconProps} className={styles.icon}>
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    ),
+  },
+  {
+    titleKey: 'features.config.title',
+    descKey: 'features.config.desc',
+    icon: (
+      <svg {...iconProps} className={styles.icon}>
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
 ]
 
 const container = {

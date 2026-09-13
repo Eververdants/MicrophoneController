@@ -35,6 +35,16 @@
   border-radius: 2px;
 }
 
+.note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 480px;
+  margin: 16px auto 0;
+  line-height: 1.8;
+  letter-spacing: 0.5px;
+}
+
 .entries {
   max-width: 600px;
   margin: 0 auto;

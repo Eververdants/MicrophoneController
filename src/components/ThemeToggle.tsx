@@ -1,47 +1,50 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { MoonIcon, SunIcon } from './icons'
+import { MonitorIcon, MoonIcon, SunIcon } from './icons'
 import { useLanguage } from '../i18n/LanguageContext'
-import type { Theme } from '../hooks/useTheme'
+import type { ThemePreference } from '../hooks/useTheme'
 
 interface ThemeToggleProps {
-  theme: Theme
-  onToggle: () => void
+  preference: ThemePreference
+  onCycle: () => void
 }
 
-export function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
-  const isDark = theme === 'dark'
+// A three-state choice does not fit a two-position switch, so this is a cycle
+// button: each press advances system → light → dark → system, and the glyph
+// shows which mode is active. The pill keeps the boot shell's 48x28 footprint
+// so the title bar never reflows (see the .boot-toggle--theme rule).
+export function ThemeToggle({ preference, onCycle }: ThemeToggleProps) {
   const { t } = useLanguage()
+
+  const label =
+    preference === 'system' ? t('followSystem') : preference === 'light' ? t('light') : t('dark')
+
   return (
     <button
       type="button"
-      onClick={onToggle}
-      aria-label={isDark ? t('light') : t('dark')}
-      title={isDark ? t('light') : t('dark')}
-      aria-pressed={isDark}
-      className="relative h-7 w-12 cursor-pointer rounded-full p-0.5"
-      style={{ background: 'var(--accent-soft)' }}
+      onClick={onCycle}
+      aria-label={`${t('theme')}: ${label}`}
+      title={`${t('theme')}: ${label}`}
+      className="relative grid h-7 w-12 cursor-pointer place-items-center rounded-full outline-none"
+      style={{ background: 'var(--accent-soft)', color: 'var(--fg)' }}
     >
-      {/* The knob carries a sun/moon glyph that crossfades with the theme. */}
-      <motion.span
-        aria-hidden
-        className="flex h-6 w-6 items-center justify-center rounded-full"
-        style={{ background: 'var(--fg)', color: 'var(--bg)' }}
-        animate={{ x: isDark ? 20 : 0 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.span
-            key={theme}
-            className="flex items-center justify-center"
-            initial={{ opacity: 0, rotate: -90, scale: 0.5 }}
-            animate={{ opacity: 1, rotate: 0, scale: 1 }}
-            exit={{ opacity: 0, rotate: 90, scale: 0.5 }}
-            transition={{ duration: 0.16, ease: 'easeOut' }}
-          >
-            {isDark ? <MoonIcon size={13} /> : <SunIcon size={13} />}
-          </motion.span>
-        </AnimatePresence>
-      </motion.span>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={preference}
+          className="grid place-items-center"
+          initial={{ opacity: 0, rotate: -90, scale: 0.5 }}
+          animate={{ opacity: 1, rotate: 0, scale: 1 }}
+          exit={{ opacity: 0, rotate: 90, scale: 0.5 }}
+          transition={{ duration: 0.16, ease: 'easeOut' }}
+        >
+          {preference === 'system' ? (
+            <MonitorIcon size={13} />
+          ) : preference === 'light' ? (
+            <SunIcon size={13} />
+          ) : (
+            <MoonIcon size={13} />
+          )}
+        </motion.span>
+      </AnimatePresence>
     </button>
   )
 }

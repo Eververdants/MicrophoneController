@@ -21,6 +21,7 @@ function Root() {
   return <App />
 }
 
+
 // The static shell inside #root (index.html) is replaced on this first commit.
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

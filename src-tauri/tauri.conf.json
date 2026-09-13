@@ -29,6 +29,24 @@
         "contentProtected": false,
         "focus": true,
         "transparent": false
+      },
+      {
+        "label": "osd",
+        "title": "MicrophoneController OSD",
+        "url": "osd.html",
+        "width": 264,
+        "height": 104,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "focus": false,
+        "center": false
       }
     ],
     "security": {

@@ -4,11 +4,11 @@ import { LanguageToggle } from './LanguageToggle'
 import { ThemeToggle } from './ThemeToggle'
 import { CloseIcon, MaximizeIcon, MinusIcon, RestoreIcon } from './icons'
 import { useLanguage } from '../i18n/LanguageContext'
-import type { Theme } from '../hooks/useTheme'
+import type { ThemePreference } from '../hooks/useTheme'
 
 interface TitleBarProps {
-  theme: Theme
-  onToggleTheme: () => void
+  preference: ThemePreference
+  onCycleTheme: () => void
 }
 
 // Resolved lazily: getCurrentWindow() throws when the frontend runs in a plain
@@ -17,7 +17,7 @@ function appWindow() {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window ? getCurrentWindow() : null
 }
 
-export function TitleBar({ theme, onToggleTheme }: TitleBarProps) {
+export function TitleBar({ preference, onCycleTheme }: TitleBarProps) {
   const { t } = useLanguage()
   const [maximized, setMaximized] = useState(false)
 
@@ -60,7 +60,7 @@ export function TitleBar({ theme, onToggleTheme }: TitleBarProps) {
 
       <div className="flex flex-none items-center gap-2 pr-2">
         <LanguageToggle />
-        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        <ThemeToggle preference={preference} onCycle={onCycleTheme} />
       </div>
 
       <div className="flex h-full flex-none items-stretch">

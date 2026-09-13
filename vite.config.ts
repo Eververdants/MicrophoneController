@@ -24,7 +24,12 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, 'index.html'),
+      // Two entry points: the main window and the mute/volume overlay, which is
+      // its own window (see the `osd` entry in src-tauri/tauri.conf.json).
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        osd: resolve(__dirname, 'osd.html'),
+      },
     },
   },
   resolve: {

@@ -1,13 +1,18 @@
 // Prevents an extra console window on Windows in release mode.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod actions;
 mod audio;
 mod commands;
 mod config;
 mod hotkey;
+mod monitor;
+mod osd;
+mod status_icon;
 mod tray;
 
 use tauri::Manager;
+use tauri_plugin_autostart::MacosLauncher;
 
 fn main() {
     tauri::Builder::default()
@@ -21,11 +26,18 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_shell::init())
+        // No launch arguments: whether to start hidden is the app's own
+        // "start minimized to tray" setting, not a flag baked into the entry.
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _shortcut, event| {
                     if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        if let Err(e) = hotkey::toggle_mute(app) {
+                        // The overlay is the point: the window is usually behind
+                        // whatever the user is doing when they reach for a
+                        // global hotkey.
+                        if let Err(e) = actions::toggle_mute(app, actions::Feedback::Overlay) {
                             log::warn!("hotkey mute toggle failed: {e}");
                         }
                     }
@@ -35,16 +47,23 @@ fn main() {
         .plugin(tauri_plugin_log::Builder::new().build())
         .manage(audio::AudioController::new())
         .setup(|app| {
-            app.manage(config::ConfigState::load(app.handle())?);
+            let handle = app.handle().clone();
+            app.manage(config::ConfigState::load(&handle)?);
             let cfg = app.state::<config::ConfigState>().get()?;
-            tray::build(app.handle())?;
-            hotkey::init(app.handle(), &cfg.hotkey)?;
+
+            tray::build(&handle)?;
+            hotkey::init(&handle, &cfg.hotkey)?;
 
             // Probe the audio device stack on a worker thread so it overlaps
             // with the webview booting instead of queueing behind it. The first
             // `get_initial_state` then returns a cached snapshot.
             app.state::<audio::AudioController>()
-                .spawn_prewarm(cfg.last_volume_percent);
+                .spawn_prewarm(cfg.last_volume_percent, cfg.selected_device_id.clone());
+
+            // State polling, the level meter and endpoint hotplug notifications.
+            monitor::spawn(&handle);
+            // The overlay must be unfocusable *before* it is ever shown.
+            osd::prepare(&handle);
 
             if let Some(w) = app.get_webview_window("main") {
                 // The webview surface is white until the page paints its first
@@ -65,7 +84,7 @@ fn main() {
                     // the frontend reports its first paint, so it can never be
                     // seen empty; `arm_reveal_fallback` covers a frontend that
                     // never reports in.
-                    commands::window::arm_reveal_fallback(app.handle().clone());
+                    commands::window::arm_reveal_fallback(handle);
                 }
             }
             Ok(())
@@ -86,19 +105,33 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::window::reveal_window,
+            commands::osd::osd_ready,
             commands::audio::get_initial_state,
             commands::audio::toggle_mute,
             commands::audio::set_mute,
             commands::audio::set_volume,
+            commands::audio::nudge_volume,
             commands::audio::list_devices,
-            commands::audio::select_device,
+            commands::audio::set_target_device,
+            commands::audio::set_default_device,
+            commands::audio::set_meter_enabled,
+            commands::audio::set_balance,
             commands::config::set_hotkey,
             commands::config::set_language,
+            commands::config::set_theme,
             commands::config::set_start_minimized,
             commands::config::set_close_to_tray,
             commands::config::set_volume_zero_mutes,
             commands::config::set_normalize,
             commands::config::set_reference_volume,
+            commands::config::set_show_osd,
+            commands::config::set_show_meter,
+            commands::config::set_scroll_step,
+            commands::config::set_poll_interval,
+            commands::config::set_autostart,
+            commands::config::export_config,
+            commands::config::import_config,
+            commands::config::reset_config,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

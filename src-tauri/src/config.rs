@@ -9,6 +9,8 @@ use tauri::AppHandle;
 pub struct AppConfig {
     #[serde(default = "default_hotkey")]
     pub hotkey: String,
+    /// How often the background monitor re-reads the endpoint state. It is the
+    /// latency between a mute toggled elsewhere and the UI showing it.
     #[serde(default = "default_poll_interval")]
     pub poll_interval_s: f64,
     #[serde(default)]
@@ -17,6 +19,9 @@ pub struct AppConfig {
     pub minimize_to_tray_on_close: bool,
     #[serde(default = "default_language")]
     pub language: String,
+    /// Capture endpoint the controls act on. `None` follows the system default,
+    /// which is what almost everyone wants; setting it pins control to one
+    /// device without changing what Windows considers default.
     #[serde(default)]
     pub selected_device_id: Option<String>,
     #[serde(default = "default_volume")]
@@ -27,6 +32,24 @@ pub struct AppConfig {
     pub normalize_volume: bool,
     #[serde(default = "default_reference_volume")]
     pub reference_volume_percent: i64,
+    /// `system` | `light` | `dark`. Mirrored into the webview's local storage
+    /// for the first paint; this copy is the one the overlay window and the
+    /// native window background read.
+    #[serde(default = "default_theme")]
+    pub theme: String,
+    /// Show the overlay when mute or volume changes from a hotkey or the tray.
+    #[serde(default = "default_true")]
+    pub show_osd: bool,
+    /// Sample and display the input level. Off means the meter thread never
+    /// runs at all, not merely that it is not drawn.
+    #[serde(default = "default_true")]
+    pub show_meter: bool,
+    /// Percentage steps used by the wheel, the arrow keys and the tray items.
+    #[serde(default = "default_scroll_step")]
+    pub scroll_step_percent: i64,
+    /// Stereo balance, -100 (all left) to 100 (all right).
+    #[serde(default)]
+    pub balance: i64,
 }
 
 fn default_hotkey() -> String {
@@ -47,6 +70,12 @@ fn default_volume() -> i64 {
 fn default_reference_volume() -> i64 {
     50
 }
+fn default_theme() -> String {
+    "system".into()
+}
+fn default_scroll_step() -> i64 {
+    5
+}
 
 impl Default for AppConfig {
     fn default() -> Self {
@@ -61,6 +90,11 @@ impl Default for AppConfig {
             volume_zero_mutes: false,
             normalize_volume: false,
             reference_volume_percent: default_reference_volume(),
+            theme: default_theme(),
+            show_osd: default_true(),
+            show_meter: default_true(),
+            scroll_step_percent: default_scroll_step(),
+            balance: 0,
         }
     }
 }
@@ -109,6 +143,24 @@ pub fn save_config(app: &AppHandle, cfg: &AppConfig) -> Result<(), String> {
     Ok(())
 }
 
+/// Validate a candidate config before it is applied (import).
+///
+/// A hand-edited or foreign file must not be able to put the app into a state
+/// it cannot recover from, so every field is clamped to its legal range.
+pub fn sanitize(cfg: &mut AppConfig) {
+    cfg.poll_interval_s = cfg.poll_interval_s.clamp(0.25, 60.0);
+    cfg.last_volume_percent = cfg.last_volume_percent.clamp(0, 100);
+    cfg.reference_volume_percent = cfg.reference_volume_percent.clamp(0, 100);
+    cfg.scroll_step_percent = cfg.scroll_step_percent.clamp(1, 25);
+    cfg.balance = cfg.balance.clamp(-100, 100);
+    if !matches!(cfg.language.as_str(), "zh-CN" | "en") {
+        cfg.language = default_language();
+    }
+    if !matches!(cfg.theme.as_str(), "system" | "light" | "dark") {
+        cfg.theme = default_theme();
+    }
+}
+
 /// Process-lifetime config cache. Commands read this instead of re-reading the
 /// file per invocation; setting changes save through [`Self::update`], while
 /// high-frequency volume ticks only mutate the cache and are persisted on exit.
@@ -135,6 +187,17 @@ impl ConfigState {
         let mut cfg = self.cfg.lock().map_err(|e| e.to_string())?;
         f(&mut cfg);
         Ok(cfg.clone())
+    }
+
+    /// Replace the cached config wholesale (import, reset) and persist it.
+    pub fn replace(&self, app: &AppHandle, mut next: AppConfig) -> Result<AppConfig, String> {
+        sanitize(&mut next);
+        {
+            let mut cfg = self.cfg.lock().map_err(|e| e.to_string())?;
+            *cfg = next.clone();
+        }
+        save_config(app, &next)?;
+        Ok(next)
     }
 
     /// Mutate the cached config and persist it (for rare, user-initiated

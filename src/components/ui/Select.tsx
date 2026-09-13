@@ -4,7 +4,8 @@ import { CheckIcon, ChevronDownIcon } from '../icons'
 
 export interface SelectOption {
   value: string
-  label: string
+  /** Plain text or a node — device rows carry badges alongside the name. */
+  label: React.ReactNode
 }
 
 interface SelectProps {

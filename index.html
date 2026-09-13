@@ -26,8 +26,10 @@
     -->
     <script>
       // Mirror of getInitialTheme() in src/hooks/useTheme.ts, duplicated here
-      // because it has to run before the first paint: persisted choice first,
-      // OS preference as the fallback.
+      // because it has to run before the first paint. The stored value is a
+      // preference — light, dark, or "system" — and anything that is not an
+      // explicit light/dark falls back to the OS setting, which is exactly what
+      // "system" means.
       ;(function () {
         try {
           var stored = localStorage.getItem('mc.theme')

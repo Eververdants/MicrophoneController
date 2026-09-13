@@ -6,20 +6,46 @@
 
 A lightweight cross-platform desktop tool that lets you control your microphone — mute toggle, volume adjustment, device switching, and global hotkeys — all from a sleek studio-rack-style UI.
 
+> **Platform note.** Audio control is implemented against Windows Core Audio (COM).
+> The app shell builds and runs on macOS and Linux, where the audio controls are
+> disabled and reported as unsupported rather than silently doing nothing.
+
 ---
 
 ## Features
 
-- **One-click mute toggle** — instantly mute or unmute your mic
-- **Volume control** — fine-tune volume with a slider (percentage and dB readout)
-- **Device switching** — switch between multiple capture devices on the fly
-- **Global hotkey** — configurable keyboard shortcut (default F8)
-- **System tray** — minimize to tray with show/hide/exit menu
-- **Background monitoring** — detects external mute changes and pushes updates in real-time
+### Control
+
+- **One-click mute toggle** — from the window, a global hotkey, or the tray menu
+- **Volume control** — slider with percentage and dB readout; mouse wheel, arrow keys, and tray menu steps (step size configurable)
+- **Device control** — choose any capture endpoint to control, see each device's own mute and level, and move the Windows default device in one click
+- **Stereo balance** — per-channel level control, hidden on mono endpoints
+- **Hardware gain range** — the endpoint's real dB window is read and shown, so "100%" is not mistaken for "maximum possible"
+
+### Feedback
+
+- **Tray status icon** — the icon and tooltip reflect the live mute state and level
+- **On-screen overlay** — a brief, always-on-top, *focus-stealing-free* hint at the bottom of the screen when mute or volume changes by hotkey or tray
+- **Live input level** — real peak metering (`IAudioMeterInformation`) drawn around the core
+- **Microphone-in-use detection** — names the applications currently recording from the device
+
+### Behaviour
+
+- **Background state sync** — a monitor thread picks up mute and volume changes made anywhere (headset button, Windows sound panel, another application) and pushes them to the UI, the tray and the overlay. The interval is configurable.
+- **Global hotkey** — recorded by pressing a combination; a hotkey that cannot be registered is reported in the UI instead of being silently dropped
+- **Device hotplug** — `IMMNotificationClient` callbacks refresh the device list when hardware appears, disappears, or takes over as default
+- **Startup and shutdown** — launch at sign-in, start minimized to tray, close to tray
+- **Theme** — light, dark, or follow the system (stays live while on "system")
+- **Config import / export / reset** — the JSON config in `%APPDATA%` is portable
 - **Bilingual UI** — Chinese and English, switchable at runtime
 - **Zero-volume mutes** — optionally auto-mute when volume reaches zero
 - **Volume normalization** — lock a reference level for consistent output
-- **Studio-rack UI** — dark theme with VU meter, LED indicator, and analog-style controls
+
+### Footprint
+
+- **Metering is demand-driven** — level sampling runs only while the window is on screen and the feature is enabled; hidden to a tray means no sampling thread at all
+- **No polling faster than it needs** — the device stack is probed once at startup on a worker thread, overlapped with the webview booting, so the first frame is never blocked on COM
+- **Studio-rack UI** — concentric core with a live level ring, analogue-style controls, and LED-style status
 
 ## Tech Stack
 
@@ -41,25 +67,38 @@ A lightweight cross-platform desktop tool that lets you control your microphone 
 MicrophoneController/
 ├── src/                        # React frontend (Vite)
 │   ├── components/             # UI components
-│   │   ├── ConcentricCore.tsx  # Concentric-circle motif
+│   │   ├── ConcentricCore.tsx  # Mute button + live level ring
 │   │   ├── VolumeSlider.tsx
-│   │   ├── DeviceSelect.tsx
-│   │   ├── Settings.tsx
+│   │   ├── DeviceSelect.tsx    # Target device + "set as default"
+│   │   ├── HotkeyRecorder.tsx  # Press-to-record hotkey input
+│   │   ├── Settings.tsx        # Modal settings panel
+│   │   ├── TitleBar.tsx        # Self-drawn caption bar
 │   │   ├── ThemeToggle.tsx
 │   │   └── LanguageToggle.tsx
 │   ├── hooks/                  # useTheme, useTauri
 │   ├── i18n/                   # translations + context
 │   ├── styles/                 # Tailwind entry + CSS variables
+│   ├── osd.tsx                 # Overlay window entry
 │   ├── App.tsx
 │   └── main.tsx
+├── osd.html                    # Overlay window document (second Vite entry)
 ├── src-tauri/                  # Rust backend
 │   ├── src/
 │   │   ├── main.rs
 │   │   ├── audio/              # Core Audio wrapper (Windows)
+│   │   │   ├── win.rs          #   endpoints, volume, meter, balance
+│   │   │   ├── policy.rs       #   IPolicyConfig — default device switching
+│   │   │   ├── sessions.rs     #   which apps hold the microphone
+│   │   │   ├── notify.rs       #   IMMNotificationClient hotplug callbacks
+│   │   │   └── stub.rs         #   non-Windows stand-ins
+│   │   ├── commands/           # Tauri command handlers, one module per domain
+│   │   ├── actions.rs          # Shared user-initiated actions (window/hotkey/tray)
+│   │   ├── monitor.rs          # Background state sync + level meter
+│   │   ├── status_icon.rs      # Tray icon, rasterised at runtime
+│   │   ├── osd.rs              # Overlay window control
 │   │   ├── hotkey.rs
 │   │   ├── tray.rs
-│   │   ├── config.rs
-│   │   └── commands.rs         # Tauri command handlers
+│   │   └── config.rs
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
 │   └── capabilities/
@@ -73,21 +112,17 @@ MicrophoneController/
 
 ### Prerequisites
 
-- Python 3.11+
-- Windows (for audio control via pycaw; macOS/Linux have limited functionality)
+- Rust (stable) and the [Tauri v2 system dependencies](https://v2.tauri.app/start/prerequisites/)
+- Node 22+ and pnpm
 
 ### Development
 
 ```bash
-# Clone the repository
 git clone https://github.com/Eververdants/MicrophoneController.git
 cd MicrophoneController
 
-# Install Python dependencies
-pip install -r app/requirements.txt
-
-# Run the application
-python app/app.py
+pnpm install
+pnpm tauri dev
 ```
 
 The app opens a 520x720 window with the studio-rack UI. Minimize to tray to keep it running in the background.
@@ -96,22 +131,21 @@ The app opens a 520x720 window with the studio-rack UI. Minimize to tray to keep
 
 ```bash
 cd website
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Visit [localhost:5173](http://localhost:5173) to preview the landing page.
 
 ## Building from Source
 
-Desktop binaries are automatically built via GitHub Actions when a version tag is pushed. To build locally:
+Desktop binaries are built by GitHub Actions when a version tag is pushed. To build locally:
 
 ```bash
-pip install -r app/requirements.txt
-pyinstaller --noconsole --onefile --name MicrophoneController app/app.py
+pnpm tauri build
 ```
 
-The output will be in the `dist/` directory.
+The installers will be in `src-tauri/target/release/bundle/`.
 
 ## Download
 
@@ -141,11 +175,28 @@ The product website is hosted at:
 - Complete rewrite from Python + pywebview to **Tauri v2** (Rust backend + React frontend)
 - Windows Core Audio via Rust COM (`windows` crate) — **no third-party .exe dependencies**
 - Concentric-circle micro-interaction UI with Motion spring animations
-- Light + dark themes with instant, no-flash toggle
+- Light + dark themes with instant, no-flash toggle — plus a "follow the system" mode
 - Tailwind CSS v4 styling, system tray, global hotkey, JSON config persistence
 - Cross-platform builds (Windows / macOS / Linux) via GitHub Actions + `tauri-action`
 - Single self-contained binary — zero external runtime deps
 - Product landing page upgraded to Tailwind + Motion + light/dark
+
+**Later 4.0.0 work — the controls became a real monitor rather than a one-way remote:**
+
+- **Default device switching** via the undocumented `IPolicyConfig` interface, plus the
+  ability to control a non-default endpoint without moving the system default
+- **Background state sync**: a monitor thread watches the endpoint so external mute and
+  volume changes (headset button, sound panel, other apps) reach the UI, tray and overlay
+- **Live peak metering** (`IAudioMeterInformation`) driving a real level ring — the
+  previous "VU meter" was decorative
+- **Device hotplug notifications** (`IMMNotificationClient`) and per-device state in the list
+- **Tray status icon** rasterised at runtime, with mute/volume menu items
+- **Mute/volume overlay** — an always-on-top, non-activating hint window for hotkey and
+  tray actions, for when the main window is behind a game
+- **Microphone-in-use detection** (`IAudioSessionManager2`) naming the apps recording
+- **Hotkey recorder** with registration failures surfaced in the UI instead of logged
+- **Config import / export / reset**, autostart, stereo balance, hardware gain range
+- **Demand-driven metering**: level sampling stops when the window is hidden
 
 ### v3.0.0 — Native WebView Rewrite
 - Complete rewrite from PyQt5 to pywebview for native WebView performance

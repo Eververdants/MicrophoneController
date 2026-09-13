@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion, type Variants } from 'motion/react'
+import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { ConcentricCore } from './components/ConcentricCore'
 import { VolumeSlider } from './components/VolumeSlider'
 import { DeviceSelect } from './components/DeviceSelect'
 import { Settings } from './components/Settings'
 import { TitleBar } from './components/TitleBar'
 import { LanguageProvider, useLanguage, LANG_STORAGE_KEY } from './i18n/LanguageContext'
-import { useTheme } from './hooks/useTheme'
+import { useTheme, type ThemePreference } from './hooks/useTheme'
 import { invoke, useTauriEvent } from './hooks/useTauri'
-import type { InitialState } from './types'
+import type { AudioStatus, ConfigSnapshot, DeviceInfo, EndpointDetails, InitialState } from './types'
+
+const THEME_STORAGE_KEY = 'mc.theme'
 
 // Entrance stagger for the main panel: runs once per launch. Decorative only —
 // transform/opacity, so it never blocks interaction.
@@ -104,69 +107,331 @@ function ShellSkeleton() {
   )
 }
 
+/** State of the transient message strip at the bottom of the panel. */
+interface Notice {
+  tone: 'ok' | 'error'
+  text: string
+}
+
+interface AppShellProps {
+  themePreference: ThemePreference
+  onThemePreference: (value: ThemePreference) => void
+}
+
 function Shell() {
-  const { theme, toggle } = useTheme()
+  // One owner for the theme: the title bar cycles it and the settings panel
+  // sets it outright, so it cannot live in two places.
+  const { preference, setPreference, cycle } = useTheme()
+
   return (
     // overflow-hidden at every level: the layout is sized to fit, so nothing
     // should ever scroll — resize just redistributes space (the core scales).
-    <div className="flex h-full flex-col overflow-hidden" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
-      <TitleBar theme={theme} onToggleTheme={toggle} />
-      <AppShell />
+    <div
+      className="flex h-full flex-col overflow-hidden"
+      style={{ background: 'var(--bg)', color: 'var(--fg)' }}
+    >
+      <TitleBar preference={preference} onCycleTheme={cycle} />
+      <AppShell themePreference={preference} onThemePreference={setPreference} />
     </div>
   )
 }
 
-function AppShell() {
+function AppShell({ themePreference, onThemePreference }: AppShellProps) {
   const { t, setLang } = useLanguage()
   const [state, setState] = useState<InitialState | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [volume, setVolume] = useState(100)
   const [volumeDb, setVolumeDb] = useState(-96)
   const [muted, setMuted] = useState(false)
+  const [peak, setPeak] = useState(0)
+  const [inUse, setInUse] = useState<string[]>([])
+  const [hotkeyError, setHotkeyError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
+  const [devices, setDevices] = useState<DeviceInfo[]>([])
+  const noticeTimer = useRef<number | null>(null)
+
+  const showNotice = useCallback((tone: Notice['tone'], text: string) => {
+    setNotice({ tone, text })
+    if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current)
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 3000)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current)
+    },
+    [],
+  )
+
+  const reportError = useCallback((err: unknown) => showNotice('error', String(err)), [showNotice])
+
+  const patch = useCallback(
+    (values: Partial<InitialState>) => setState((prev) => (prev ? { ...prev, ...values } : prev)),
+    [],
+  )
 
   useEffect(() => {
     invoke<InitialState>('get_initial_state')
       .then((s) => {
         setState(s)
+        setDevices(s.devices)
         setVolume(s.volumePercent)
         setVolumeDb(s.volumeDb)
         setMuted(s.muted)
-        // First launch: adopt the language persisted in the backend config.
+        setInUse(s.inUse)
+        setHotkeyError(s.hotkeyError)
+        // First launch: adopt the preferences persisted in the backend config.
         if (localStorage.getItem(LANG_STORAGE_KEY) === null) {
           if (s.language === 'en' || s.language === 'zh-CN') setLang(s.language)
         }
+        if (localStorage.getItem(THEME_STORAGE_KEY) === null) onThemePreference(s.theme)
       })
       .catch((err) => {
         console.error('get_initial_state failed:', err)
         setLoadError(String(err))
       })
-  }, [setLang])
+  }, [setLang, onThemePreference])
 
-  useTauriEvent<boolean>('audio:status', (m) => setMuted(m))
+  // --- events from the backend -------------------------------------------
+  useTauriEvent<AudioStatus>('audio:status', (status) => {
+    setMuted(status.muted)
+    setVolume(status.volumePercent)
+    setVolumeDb(status.volumeDb)
+  })
+  useTauriEvent<number>('audio:level', setPeak)
+  useTauriEvent<string[]>('audio:in-use', setInUse)
+  useTauriEvent<DeviceInfo[]>('audio:devices', setDevices)
+  // Pushed by IMMNotificationClient when an endpoint appears, disappears or
+  // takes over as default — the list has to be re-read, not just re-rendered.
+  useTauriEvent<null>('audio:devices-changed', () => {
+    invoke<DeviceInfo[]>('list_devices')
+      .then(setDevices)
+      .catch((err) => console.error('device refresh failed:', err))
+  })
 
-  // Settings callbacks must update local state too, or the toggles never
-  // reflect (and a second click re-sends the same stale value).
-  const patchState = (patch: Partial<InitialState>) =>
-    setState((prev) => (prev ? { ...prev, ...patch } : prev))
-
-  const handleToggleMute = async () => {
-    try {
-      const next = await invoke<boolean>('toggle_mute')
-      setMuted(next)
-    } catch (err) {
-      console.error('toggle_mute failed:', err)
+  // --- level meter --------------------------------------------------------
+  // Only the *preference* is sent. Whether the window is actually on screen is
+  // decided by the backend, which is the side that hides and shows it:
+  // `document.visibilityState` in this webview does not follow a window that is
+  // created hidden and revealed later, so gating on it here would silently
+  // leave sampling off for the whole session.
+  const meterAllowed = Boolean(state?.platformSupported) && Boolean(state?.showMeter)
+  useEffect(() => {
+    invoke('set_meter_enabled', { enabled: meterAllowed }).catch(() => {})
+    if (!meterAllowed) setPeak(0)
+    return () => {
+      invoke('set_meter_enabled', { enabled: false }).catch(() => {})
     }
-  }
+  }, [meterAllowed])
 
-  const handleVolume = async (v: number) => {
-    setVolume(v)
+  // --- actions ------------------------------------------------------------
+  const handleToggleMute = useCallback(async () => {
     try {
-      const db = await invoke<number>('set_volume', { percent: v })
-      setVolumeDb(db)
+      setMuted(await invoke<boolean>('toggle_mute'))
     } catch (err) {
-      console.error('set_volume failed:', err)
+      reportError(err)
     }
-  }
+  }, [reportError])
+
+  const handleVolume = useCallback(
+    async (value: number) => {
+      setVolume(value)
+      try {
+        setVolumeDb(await invoke<number>('set_volume', { percent: value }))
+      } catch (err) {
+        reportError(err)
+      }
+    },
+    [reportError],
+  )
+
+  const step = state?.scrollStepPercent ?? 5
+  const nudge = useCallback(
+    async (delta: number) => {
+      try {
+        await invoke<number>('nudge_volume', { delta })
+      } catch (err) {
+        reportError(err)
+      }
+    },
+    [reportError],
+  )
+
+  // Keyboard: Space for mute, arrows for volume. Skipped whenever the key would
+  // mean something else — a control that handles it itself (the core is a
+  // button, the sliders take their own arrows) or an open dialog.
+  useEffect(() => {
+    if (!state?.platformSupported) return
+    const inDialog = (target: EventTarget | null) =>
+      target instanceof Element && target.closest('[role="dialog"]') !== null
+    const inOwnControl = (target: EventTarget | null, selector: string) =>
+      target instanceof Element && target.closest(selector) !== null
+
+    const onKey = (event: KeyboardEvent) => {
+      if (inDialog(event.target)) return
+      if (event.key === ' ') {
+        // Space is how a focused button is activated; acting on it too would
+        // toggle mute twice per press.
+        if (inOwnControl(event.target, 'button, input, select, textarea, [role="slider"]')) return
+        event.preventDefault()
+        void handleToggleMute()
+      } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        if (inOwnControl(event.target, '[role="slider"]')) return
+        event.preventDefault()
+        void nudge(event.key === 'ArrowUp' ? step : -step)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [state?.platformSupported, step, handleToggleMute, nudge])
+
+  // Wheel over the panel adjusts volume — the gesture people reach for, on the
+  // surface where it can actually be delivered (see the note in tray.rs).
+  useEffect(() => {
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return
+      if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return
+      event.preventDefault()
+      void nudge(event.deltaY < 0 ? step : -step)
+    }
+    window.addEventListener('wheel', onWheel, { passive: false })
+    return () => window.removeEventListener('wheel', onWheel)
+  }, [step, nudge])
+
+  const handleTargetDevice = useCallback(
+    async (id: string | null) => {
+      patch({ selectedDeviceId: id })
+      try {
+        const details = await invoke<EndpointDetails>('set_target_device', { deviceId: id })
+        setMuted(details.muted)
+        setVolume(details.volumePercent)
+        setVolumeDb(details.volumeDb)
+        patch({
+          volumeRange: details.range,
+          channelCount: details.channelCount,
+          balance: details.balance,
+        })
+      } catch (err) {
+        reportError(err)
+      }
+    },
+    [patch, reportError],
+  )
+
+  const handleSetDefault = useCallback(
+    async (id: string) => {
+      try {
+        setDevices(await invoke<DeviceInfo[]>('set_default_device', { deviceId: id }))
+        showNotice('ok', t('defaultSet'))
+      } catch (err) {
+        reportError(err)
+      }
+    },
+    [reportError, showNotice, t],
+  )
+
+  // --- settings -----------------------------------------------------------
+  const persist = useCallback(
+    (
+      values: Partial<InitialState>,
+      command: string,
+      args: Record<string, unknown>,
+      onApplied?: (result: unknown) => void,
+    ) => {
+      patch(values)
+      invoke(command, args)
+        .then((result) => onApplied?.(result))
+        .catch(reportError)
+    },
+    [patch, reportError],
+  )
+
+  const handleHotkey = useCallback(
+    async (value: string) => {
+      const previous = state?.hotkey ?? ''
+      patch({ hotkey: value })
+      try {
+        await invoke('set_hotkey', { hotkey: value })
+        setHotkeyError(null)
+      } catch (err) {
+        // The backend refused it and kept the old binding, so the UI has to roll
+        // back rather than display a hotkey that is not in effect.
+        patch({ hotkey: previous })
+        setHotkeyError(String(err))
+      }
+    },
+    [patch, state?.hotkey],
+  )
+
+  const applyConfig = useCallback(
+    (config: ConfigSnapshot) => {
+      patch({
+        hotkey: config.hotkey,
+        startMinimizedToTray: config.startMinimizedToTray,
+        minimizeToTrayOnClose: config.minimizeToTrayOnClose,
+        volumeZeroMutes: config.volumeZeroMutes,
+        normalizeVolume: config.normalizeVolume,
+        referenceVolumePercent: config.referenceVolumePercent,
+        showOsd: config.showOsd,
+        showMeter: config.showMeter,
+        scrollStepPercent: config.scrollStepPercent,
+        balance: config.balance,
+        selectedDeviceId: config.selectedDeviceId,
+        pollInterval: config.pollIntervalS,
+      })
+      onThemePreference(config.theme)
+      setLang(config.language === 'en' ? 'en' : 'zh-CN')
+      setHotkeyError(null)
+    },
+    [patch, onThemePreference, setLang],
+  )
+
+  const handleExport = useCallback(async () => {
+    try {
+      const path = await saveDialog({
+        title: t('exportConfig'),
+        defaultPath: 'microphone-controller-config.json',
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      })
+      if (!path) return
+      await invoke('export_config', { path })
+      showNotice('ok', t('exportDone'))
+    } catch (err) {
+      reportError(err)
+    }
+  }, [reportError, showNotice, t])
+
+  const handleImport = useCallback(async () => {
+    let path: string | null
+    try {
+      const picked = await openDialog({
+        title: t('importConfig'),
+        multiple: false,
+        directory: false,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      })
+      path = typeof picked === 'string' ? picked : null
+    } catch (err) {
+      reportError(err)
+      return
+    }
+    if (!path) return
+    try {
+      applyConfig(await invoke<ConfigSnapshot>('import_config', { path }))
+      showNotice('ok', t('importDone'))
+    } catch (err) {
+      showNotice('error', `${t('importInvalid')} — ${String(err)}`)
+    }
+  }, [applyConfig, reportError, showNotice, t])
+
+  const handleReset = useCallback(async () => {
+    try {
+      applyConfig(await invoke<ConfigSnapshot>('reset_config'))
+      showNotice('ok', t('resetDone'))
+    } catch (err) {
+      reportError(err)
+    }
+  }, [applyConfig, reportError, showNotice, t])
 
   if (loadError) {
     return (
@@ -197,6 +462,8 @@ function AppShell() {
               <ConcentricCore
                 muted={muted}
                 volumePercent={volume}
+                peak={peak}
+                meterEnabled={meterAllowed}
                 onToggleMute={handleToggleMute}
                 disabled={!state.platformSupported}
               />
@@ -206,8 +473,8 @@ function AppShell() {
             </div>
           </motion.section>
 
-          {/* status pill */}
-          <motion.div variants={sectionVariants} className="flex justify-center">
+          {/* status: mute state, plus whoever else is holding the microphone */}
+          <motion.div variants={sectionVariants} className="flex flex-wrap items-center justify-center gap-2">
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.span
                 key={muted ? 'muted' : 'live'}
@@ -230,6 +497,26 @@ function AppShell() {
                 {muted ? t('mute') : t('unmute')}
               </motion.span>
             </AnimatePresence>
+
+            {/* A device that looks muted and one another app is recording from
+                are very different situations, and neither the flag above nor
+                the level meter tells them apart. */}
+            {inUse.length > 0 && (
+              <motion.span
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                title={t('inUseHint')}
+                className="inline-flex max-w-[16rem] items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+                style={{ background: 'var(--accent-soft)', color: 'var(--fg-muted)' }}
+              >
+                <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--fg)' }} />
+                <span className="truncate">
+                  {inUse[0]}
+                  {inUse.length > 1 ? ` +${inUse.length - 1}` : ''} · {t('inUse')}
+                </span>
+              </motion.span>
+            )}
           </motion.div>
 
           {/* device */}
@@ -238,55 +525,121 @@ function AppShell() {
               {t('device')}
             </span>
             <DeviceSelect
-              devices={state.devices}
+              devices={devices}
               selectedId={state.selectedDeviceId}
-              onChange={(id) => {
-                patchState({ selectedDeviceId: id })
-                invoke('select_device', { deviceId: id }).catch(console.error)
-              }}
+              onChange={handleTargetDevice}
+              onSetDefault={handleSetDefault}
+              disabled={!state.platformSupported}
             />
-            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-              {state.platformSupported ? t('deviceNote') : t('platformUnsupported')}
-            </p>
           </motion.section>
 
           {/* settings */}
           <motion.section variants={sectionVariants}>
             <Settings
-              hotkey={state.hotkey}
-              onHotkeyChange={(v) => {
-                patchState({ hotkey: v })
-                invoke('set_hotkey', { hotkey: v }).catch(console.error)
+              hotkey={{ value: state.hotkey, error: hotkeyError, onChange: handleHotkey }}
+              themePreference={themePreference}
+              onThemePreference={onThemePreference}
+              behavior={[
+                {
+                  id: 'startMinimized',
+                  label: t('startMinimized'),
+                  checked: state.startMinimizedToTray,
+                  onChange: (v) =>
+                    persist({ startMinimizedToTray: v }, 'set_start_minimized', { value: v }),
+                },
+                {
+                  id: 'closeToTray',
+                  label: t('closeToTray'),
+                  checked: state.minimizeToTrayOnClose,
+                  onChange: (v) =>
+                    persist({ minimizeToTrayOnClose: v }, 'set_close_to_tray', { value: v }),
+                },
+                {
+                  id: 'autostart',
+                  label: t('autostart'),
+                  checked: state.autostart,
+                  onChange: (v) => persist({ autostart: v }, 'set_autostart', { value: v }),
+                },
+                {
+                  id: 'zeroVolumeMutes',
+                  label: t('zeroVolumeMutes'),
+                  checked: state.volumeZeroMutes,
+                  onChange: (v) =>
+                    persist({ volumeZeroMutes: v }, 'set_volume_zero_mutes', { value: v }),
+                },
+                {
+                  id: 'normalize',
+                  label: t('normalize'),
+                  checked: state.normalizeVolume,
+                  onChange: (v) => persist({ normalizeVolume: v }, 'set_normalize', { value: v }),
+                },
+                {
+                  id: 'showOsd',
+                  label: t('showOsd'),
+                  note: t('showOsdNote'),
+                  checked: state.showOsd,
+                  onChange: (v) => persist({ showOsd: v }, 'set_show_osd', { value: v }),
+                },
+                {
+                  id: 'showMeter',
+                  label: t('showMeter'),
+                  note: t('showMeterNote'),
+                  checked: state.showMeter,
+                  onChange: (v) => persist({ showMeter: v }, 'set_show_meter', { value: v }),
+                },
+              ]}
+              scrollStep={state.scrollStepPercent}
+              onScrollStep={(v) =>
+                persist({ scrollStepPercent: v }, 'set_scroll_step', { percent: v })
+              }
+              pollInterval={state.pollInterval}
+              onPollInterval={(v) => persist({ pollInterval: v }, 'set_poll_interval', { seconds: v })}
+              normalizeReference={{
+                enabled: state.normalizeVolume,
+                value: state.referenceVolumePercent,
+                onChange: (v) =>
+                  persist({ referenceVolumePercent: v }, 'set_reference_volume', { percent: v }),
               }}
-              startMinimized={state.startMinimizedToTray}
-              onStartMinimizedChange={(v) => {
-                patchState({ startMinimizedToTray: v })
-                invoke('set_start_minimized', { value: v }).catch(console.error)
+              balance={{
+                value: state.balance,
+                channelCount: state.channelCount,
+                onChange: (v) =>
+                  invoke<number>('set_balance', { balance: v })
+                    .then((applied) => patch({ balance: applied }))
+                    .catch(reportError),
               }}
-              closeToTray={state.minimizeToTrayOnClose}
-              onCloseToTrayChange={(v) => {
-                patchState({ minimizeToTrayOnClose: v })
-                invoke('set_close_to_tray', { value: v }).catch(console.error)
-              }}
-              zeroVolumeMutes={state.volumeZeroMutes}
-              onZeroVolumeMutesChange={(v) => {
-                patchState({ volumeZeroMutes: v })
-                invoke('set_volume_zero_mutes', { value: v }).catch(console.error)
-              }}
-              normalize={state.normalizeVolume}
-              onNormalizeChange={(v) => {
-                patchState({ normalizeVolume: v })
-                invoke('set_normalize', { value: v }).catch(console.error)
-              }}
-              referenceVolume={state.referenceVolumePercent}
-              onReferenceVolumeChange={(v) => {
-                patchState({ referenceVolumePercent: v })
-                invoke('set_reference_volume', { percent: v }).catch(console.error)
-              }}
+              gainRange={state.volumeRange}
+              meta={{ version: state.version, configPath: state.configPath }}
+              onExport={handleExport}
+              onImport={handleImport}
+              onReset={handleReset}
             />
           </motion.section>
         </motion.main>
       )}
+
+      {/* Transient feedback. Positioned rather than laid out, so a message never
+          shifts the panel. */}
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            key={notice.text}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            role="status"
+            className="pointer-events-none absolute inset-x-0 bottom-3 mx-auto w-fit max-w-[80%] truncate rounded-lg px-3 py-1.5 text-xs"
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              color: notice.tone === 'error' ? 'var(--danger)' : 'var(--fg)',
+            }}
+          >
+            {notice.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

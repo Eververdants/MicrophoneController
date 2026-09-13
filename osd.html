@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MicrophoneController OSD</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!--
+      The overlay window. It is created at startup and kept hidden (see the
+      `osd` entry in src-tauri/tauri.conf.json), so unlike index.html it never
+      faces a cold first paint — by the time it is shown the page has long since
+      loaded, and the only thing that must be true from the first frame is that
+      the surface is transparent rather than a white rectangle over the user's
+      game.
+
+      The theme bootstrap mirrors index.html's, so the overlay follows the same
+      light/dark/system preference without a round trip.
+    -->
+    <script>
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('mc.theme')
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+          document.documentElement.setAttribute('data-theme', theme)
+        } catch (e) {
+          // localStorage can be unavailable — the CSS default below applies.
+        }
+      })()
+    </script>
+
+    <style>
+      /* Colours mirror --bg / --bg-elevated in src/styles/index.css. */
+      html {
+        background: transparent;
+      }
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+        background: transparent;
+        overflow: hidden;
+      }
+      body {
+        font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/osd.tsx"></script>
+  </body>
+</html>

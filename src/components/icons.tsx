@@ -98,3 +98,79 @@ export function SlidersIcon({ size = 14, className, strokeWidth = 1.8 }: IconPro
     </svg>
   )
 }
+
+export function MicIcon({ size = 14, className, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg {...svgProps(size, className, strokeWidth)}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <path d="M12 18v3" />
+    </svg>
+  )
+}
+
+export function MicOffIcon({ size = 14, className, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg {...svgProps(size, className, strokeWidth)}>
+      <path d="M9 5.5A3 3 0 0 1 15 6v4.5M9 9.5V11a3 3 0 0 0 4.6 2.5" />
+      <path d="M5 11a7 7 0 0 0 10.5 6" />
+      <path d="M12 18v3" />
+      <path d="M3.5 3.5l17 17" />
+    </svg>
+  )
+}
+
+export function VolumeIcon({ size = 14, className, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg {...svgProps(size, className, strokeWidth)}>
+      <path d="M4 10v4h3l4 3.5v-15L7 10H4Z" />
+      <path d="M15 9.5a3.5 3.5 0 0 1 0 5M17.8 7a7 7 0 0 1 0 10" />
+    </svg>
+  )
+}
+
+// Theme "follow the system" glyph.
+export function MonitorIcon({ size = 14, className, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg {...svgProps(size, className, strokeWidth)}>
+      <rect x="3" y="4.5" width="18" height="12" rx="2" />
+      <path d="M9 20h6M12 16.5V20" />
+    </svg>
+  )
+}
+
+export function AlertIcon({ size = 14, className, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg {...svgProps(size, className, strokeWidth)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5v5.5M12 16.3v.2" />
+    </svg>
+  )
+}
+
+export function DownloadIcon({ size = 14, className, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg {...svgProps(size, className, strokeWidth)}>
+      <path d="M12 3.5v10M8 10l4 4 4-4" />
+      <path d="M4.5 18h15" />
+    </svg>
+  )
+}
+
+export function UploadIcon({ size = 14, className, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg {...svgProps(size, className, strokeWidth)}>
+      <path d="M12 14.5v-10M8 8l4-4 4 4" />
+      <path d="M4.5 18h15" />
+    </svg>
+  )
+}
+
+export function ResetIcon({ size = 14, className, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg {...svgProps(size, className, strokeWidth)}>
+      <path d="M4 10.5A8 8 0 1 1 6 16" />
+      <path d="M4 5.5v5h5" />
+    </svg>
+  )
+}

@@ -13,6 +13,8 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
@@ -21,6 +23,10 @@ tauri-plugin-log = "2"
 dirs = "6"
 
 [target.'cfg(windows)'.dependencies]
+# Direct dependency because `#[interface]` (used for the undocumented
+# IPolicyConfig declaration) expands to `::windows_core::` paths, which must
+# resolve in this crate. Version is kept in lockstep with `windows` above.
+windows-core = "0.61"
 windows = { version = "0.61", features = [
   "Win32_Media_Audio",
   "Win32_Media_Audio_Endpoints",

@@ -1,62 +1,107 @@
-//! Global hotkey registration via tauri-plugin-global-shortcut.
+//! Global hotkey registration.
 //!
-//! The plugin's handler (wired in main.rs) toggles mute; this module tracks
-//! the currently registered shortcut and swaps registrations when the user
-//! rebinds it.
+//! The plugin's handler (wired in `main.rs`) performs the action; this module
+//! owns the registration lifecycle and — crucially — *reports failures upward*.
+//!
+//! A global shortcut is a shared, first-come-first-served resource. When the
+//! combination is already taken, the honest outcome is "that did not work", not
+//! a log line the user never sees while the settings panel claims success.
 
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 pub struct HotkeyState {
-    current: Mutex<Shortcut>,
+    /// `None` when the user has cleared the hotkey: registering nothing is a
+    /// valid, intentional configuration.
+    current: Mutex<Option<Shortcut>>,
+    /// Why the last registration attempt failed, for the settings panel.
+    error: Mutex<Option<String>>,
 }
 
 fn parse(hotkey: &str) -> Result<Shortcut, String> {
     hotkey
+        .trim()
         .parse::<Shortcut>()
         .map_err(|e| format!("invalid hotkey '{hotkey}': {e}"))
 }
 
-/// Register the configured shortcut at startup. Registration failures are not
-/// fatal (the key may be taken by another app) but are surfaced to the log.
 pub fn init(app: &AppHandle, hotkey: &str) -> Result<(), String> {
-    let shortcut = parse(hotkey)?;
     app.manage(HotkeyState {
-        current: Mutex::new(shortcut),
+        current: Mutex::new(None),
+        error: Mutex::new(None),
     });
-    if let Err(e) = app.global_shortcut().register(shortcut) {
-        log::warn!("could not register global hotkey '{hotkey}': {e}");
-    }
+    // Registration failure is not fatal — the key may be taken by another app —
+    // but it is remembered so the UI can say so.
+    let _ = register(app, hotkey);
     Ok(())
 }
 
-/// Swap the registered shortcut. The new one is registered before the old one
-/// is released, so a failed rebind leaves the old hotkey working.
-pub fn set_hotkey(app: &AppHandle, hotkey: &str) -> Result<(), String> {
-    let new_shortcut = parse(hotkey)?;
+/// Why the last registration attempt failed, if it did.
+///
+/// The *requested* binding lives in the config; this is only the complaint, so
+/// a failed registration shows as "F8 — unavailable" rather than as an empty
+/// field the user would read as "cleared".
+pub fn registration_error(app: &AppHandle) -> Option<String> {
     let state: State<HotkeyState> = app.state();
-    let mut current = state.current.lock().map_err(|e| e.to_string())?;
-    if *current == new_shortcut {
+    state.error.lock().ok().and_then(|e| e.clone())
+}
+
+fn record(app: &AppHandle, error: Option<String>) {
+    let state: State<HotkeyState> = app.state();
+    // Bound to a local rather than locked inline: a `State` borrows the app, and
+    // a temporary guard in the tail position would outlive it.
+    let mut slot = match state.error.lock() {
+        Ok(slot) => slot,
+        Err(_) => return,
+    };
+    *slot = error;
+}
+
+/// Swap the registered shortcut.
+///
+/// An empty string means "no hotkey" and is allowed. A failed rebind leaves the
+/// previous binding untouched, so a bad combination cannot cost the user a
+/// working key.
+pub fn set_hotkey(app: &AppHandle, hotkey: &str) -> Result<(), String> {
+    if hotkey.trim().is_empty() {
+        unregister(app)?;
+        record(app, None);
         return Ok(());
     }
-    let shortcuts = app.global_shortcut();
-    shortcuts
-        .register(new_shortcut)
-        .map_err(|e| format!("could not register hotkey '{hotkey}': {e}"))?;
-    let _ = shortcuts.unregister(*current);
-    *current = new_shortcut;
+    register(app, hotkey)?;
+    record(app, None);
     Ok(())
 }
 
-/// Shared mute toggle for the plugin handler and the toggle_mute command.
-pub fn toggle_mute(app: &AppHandle) -> Result<bool, String> {
-    let new_state = crate::audio::win::toggle_mute()?;
-    let audio = app.state::<crate::audio::AudioController>();
-    {
-        let mut inner = audio.inner.lock().map_err(|e| e.to_string())?;
-        inner.last_known_muted = new_state;
+fn register(app: &AppHandle, hotkey: &str) -> Result<(), String> {
+    let requested = parse(hotkey)?;
+    let state: State<HotkeyState> = app.state();
+    let mut current = state.current.lock().map_err(|e| e.to_string())?;
+    if *current == Some(requested) {
+        return Ok(());
     }
-    let _ = app.emit("audio:status", new_state);
-    Ok(new_state)
+
+    let shortcuts = app.global_shortcut();
+    // Register first, release second: a rejected combination must not leave the
+    // app with no hotkey at all.
+    shortcuts.register(requested).map_err(|e| {
+        let message = format!("hotkey '{hotkey}' is unavailable ({e})");
+        log::warn!("{message}");
+        message
+    })?;
+    if let Some(previous) = current.take() {
+        let _ = shortcuts.unregister(previous);
+    }
+    *current = Some(requested);
+    Ok(())
+}
+
+fn unregister(app: &AppHandle) -> Result<(), String> {
+    let state: State<HotkeyState> = app.state();
+    let mut current = state.current.lock().map_err(|e| e.to_string())?;
+    if let Some(previous) = current.take() {
+        let _ = app.global_shortcut().unregister(previous);
+    }
+    Ok(())
 }

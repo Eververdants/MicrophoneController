@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "osd",
+  "description": "Capabilities for the mute/volume overlay. It only listens for its own events and reports readiness, so it is deliberately narrower than the main window.",
+  "windows": ["osd"],
+  "permissions": ["core:event:default", "core:window:allow-hide", "core:window:allow-show"]
+}

@@ -1,6 +1,6 @@
 [package]
 name = "microphonecontroller"
-version = "4.0.0"
+version = "1.0.0"
 description = "Microphone control — mute, volume, device switching"
 authors = ["Eververdants"]
 edition = "2021"

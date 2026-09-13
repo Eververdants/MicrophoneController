@@ -143,7 +143,7 @@ Do **not** add:
 - Third-party `.exe` dependencies (AutoHotkey, nircmd, EarTrumpet, etc.).
 - New audio frameworks beyond Windows Core Audio (keep it native).
 - Heavy state libraries (Redux, MobX, Zustand) — hooks + commands suffice.
-- Feature creep beyond v3.0.0 parity unless explicitly requested.
+- Feature creep beyond v1.0.0 parity unless explicitly requested.
 
 ---
 

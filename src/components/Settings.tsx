@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
 import { Toggle } from './ui/Toggle'
@@ -6,11 +6,9 @@ import { Slider } from './ui/Slider'
 import { HotkeyRecorder } from './HotkeyRecorder'
 import {
   AlertIcon,
-  ChevronDownIcon,
-  CloseIcon,
+  ArrowLeftIcon,
   DownloadIcon,
   ResetIcon,
-  SlidersIcon,
   UploadIcon,
 } from './icons'
 import type { ThemePreference, VolumeRange } from '../types'
@@ -24,6 +22,7 @@ interface ToggleSpec {
 }
 
 export interface SettingsProps {
+  onBack: () => void
   hotkey: { value: string; error: string | null; onChange: (v: string) => void }
   themePreference: ThemePreference
   onThemePreference: (v: ThemePreference) => void
@@ -41,266 +40,225 @@ export interface SettingsProps {
   onReset: () => void
 }
 
-// Settings opens as a centred modal overlay instead of an expanding section:
-// the main layout never reflows, which keeps the window scroll-free at any size.
+// Settings is a dedicated view that replaces the main panel, not a modal on top
+// of it: the window is small, and a page gives every control room to breathe
+// with a body that scrolls naturally instead of a card floating over the core.
 export function Settings(props: SettingsProps) {
   const { t, lang, setLang } = useLanguage()
-  const [open, setOpen] = useState(false)
+  const { onBack } = props
   const [confirmingReset, setConfirmingReset] = useState(false)
 
+  // Escape goes back a level. The hotkey recorder stops propagation in the
+  // capture phase while it is recording, so the two never fight over Escape.
   useEffect(() => {
-    if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') onBack()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open])
-
-  const openSettings = () => {
-    // A confirmation that survives a reopen would be a trap, so it is cleared
-    // on the way in rather than watched for the close.
-    setConfirmingReset(false)
-    setOpen(true)
-  }
+  }, [onBack])
 
   return (
-    <>
-      <motion.button
-        type="button"
-        onClick={openSettings}
-        whileTap={{ scale: 0.98 }}
-        transition={{ duration: 0.12 }}
-        className="flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm outline-none hover:bg-[var(--accent-soft)]"
-        style={{ color: 'var(--fg)' }}
-      >
-        <span className="flex items-center gap-2">
-          <SlidersIcon size={15} />
+    // Same wrapper as the main panel, so switching views keeps the content
+    // column in place; only the page itself slides in.
+    <motion.div
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 24 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col overflow-hidden px-6 pb-4 pt-1"
+    >
+      <header className="flex flex-none items-center gap-2 pb-2">
+        <button
+          type="button"
+          onClick={props.onBack}
+          aria-label={t('back')}
+          title={t('back')}
+          className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-xs outline-none hover:bg-[var(--accent-soft)]"
+          style={{ color: 'var(--fg-muted)' }}
+        >
+          <ArrowLeftIcon size={14} />
+          {t('back')}
+        </button>
+        <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
           {t('settings')}
         </span>
-        <span style={{ color: 'var(--fg-muted)' }}>
-          <ChevronDownIcon size={14} />
-        </span>
-      </motion.button>
+      </header>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            key="settings-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            // top-10 keeps the custom title bar (and its window controls) usable.
-            className="fixed inset-x-0 bottom-0 top-10 z-10 grid place-items-center p-6"
-            style={{ background: 'color-mix(in srgb, var(--bg) 60%, transparent)' }}
-            onMouseDown={() => setOpen(false)}
-          >
-            <motion.div
-              role="dialog"
-              aria-label={t('settings')}
-              onMouseDown={(e) => e.stopPropagation()}
-              initial={{ opacity: 0, y: 16, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.98 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-              className="flex max-h-full w-full max-w-sm flex-col rounded-xl border p-4 shadow-xl"
-              style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
+      {/* Only the body scrolls: the header stays put on a window this short. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-1 pr-1">
+        <Section label={t('hotkey')}>
+          <HotkeyRecorder
+            value={props.hotkey.value}
+            onChange={props.hotkey.onChange}
+            recordingLabel={t('hotkeyRecording')}
+            emptyLabel={t('hotkeyEmpty')}
+            ariaLabel={t('hotkey')}
+          />
+          {props.hotkey.error && (
+            <p
+              className="flex items-start gap-1.5 text-xs"
+              style={{ color: 'var(--danger)' }}
+              role="alert"
+              // The backend's own message names the system error; it is
+              // kept as a tooltip rather than shown, because the
+              // actionable part is already in the sentence above it.
+              title={props.hotkey.error}
             >
-              <div className="mb-3 flex flex-none items-center justify-between">
-                <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                  {t('settings')}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  aria-label={t('close')}
-                  className="cursor-pointer rounded-md p-1 outline-none hover:bg-[var(--accent-soft)]"
-                  style={{ color: 'var(--fg-muted)' }}
-                >
-                  <CloseIcon size={14} />
-                </button>
+              <span className="mt-px flex-none">
+                <AlertIcon size={13} />
+              </span>
+              <span>{t('hotkeyUnavailable')}</span>
+            </p>
+          )}
+          <Note>{t('hotkeyHint')}</Note>
+          <Note>{t('keyboardHint')}</Note>
+        </Section>
+
+        <Section label={t('theme')}>
+          <Segmented
+            ariaLabel={t('theme')}
+            value={props.themePreference}
+            options={[
+              { value: 'system', label: t('followSystem') },
+              { value: 'light', label: t('light') },
+              { value: 'dark', label: t('dark') },
+            ]}
+            onChange={props.onThemePreference}
+          />
+        </Section>
+
+        <Section label={t('language')}>
+          <Segmented
+            ariaLabel={t('language')}
+            value={lang}
+            options={[
+              { value: 'zh-CN', label: '中文' },
+              { value: 'en', label: 'English' },
+            ]}
+            onChange={setLang}
+          />
+        </Section>
+
+        <Section label={t('systemSection')}>
+          <div className="flex flex-col gap-3">
+            {props.behavior.map((item) => (
+              <div key={item.id} className="flex flex-col gap-1">
+                <Toggle label={item.label} checked={item.checked} onChange={item.onChange} />
+                {item.note && <Note>{item.note}</Note>}
               </div>
+            ))}
+          </div>
+        </Section>
 
-              {/* Only the body scrolls: the title and close button stay put on
-                  a window this short. */}
-              <div className="flex min-h-0 flex-col gap-4 overflow-y-auto pr-1">
-                <Section label={t('hotkey')}>
-                  <HotkeyRecorder
-                    value={props.hotkey.value}
-                    onChange={props.hotkey.onChange}
-                    recordingLabel={t('hotkeyRecording')}
-                    emptyLabel={t('hotkeyEmpty')}
-                    ariaLabel={t('hotkey')}
-                  />
-                  {props.hotkey.error && (
-                    <p
-                      className="flex items-start gap-1.5 text-xs"
-                      style={{ color: 'var(--danger)' }}
-                      role="alert"
-                      // The backend's own message names the system error; it is
-                      // kept as a tooltip rather than shown, because the
-                      // actionable part is already in the sentence above it.
-                      title={props.hotkey.error}
-                    >
-                      <span className="mt-px flex-none">
-                        <AlertIcon size={13} />
-                      </span>
-                      <span>{t('hotkeyUnavailable')}</span>
-                    </p>
-                  )}
-                  <Note>{t('hotkeyHint')}</Note>
-                  <Note>{t('keyboardHint')}</Note>
-                </Section>
+        <Section label={t('volume')}>
+          <Field label={`${t('scrollStep')} — ${props.scrollStep}%`}>
+            <Slider
+              value={props.scrollStep}
+              min={1}
+              max={20}
+              step={1}
+              onChange={props.onScrollStep}
+              ariaLabel={t('scrollStep')}
+            />
+          </Field>
 
-                <Section label={t('theme')}>
-                  <Segmented
-                    ariaLabel={t('theme')}
-                    value={props.themePreference}
-                    options={[
-                      { value: 'system', label: t('followSystem') },
-                      { value: 'light', label: t('light') },
-                      { value: 'dark', label: t('dark') },
-                    ]}
-                    onChange={props.onThemePreference}
-                  />
-                </Section>
+          {props.normalizeReference.enabled && (
+            <Field
+              label={`${t('referenceVolume')} — ${props.normalizeReference.value}%`}
+            >
+              <Slider
+                value={props.normalizeReference.value}
+                min={0}
+                max={100}
+                step={1}
+                onChange={props.normalizeReference.onChange}
+                ariaLabel={t('referenceVolume')}
+              />
+            </Field>
+          )}
 
-                <Section label={t('language')}>
-                  <Segmented
-                    ariaLabel={t('language')}
-                    value={lang}
-                    options={[
-                      { value: 'zh-CN', label: '中文' },
-                      { value: 'en', label: 'English' },
-                    ]}
-                    onChange={setLang}
-                  />
-                </Section>
+          {props.balance.channelCount >= 2 ? (
+            <Field
+              label={`${t('balance')} — ${
+                props.balance.value === 0
+                  ? t('balanceCenter')
+                  : `${props.balance.value < 0 ? t('balanceLeft') : t('balanceRight')} ${Math.abs(
+                      props.balance.value,
+                    )}`
+              }`}
+            >
+              <Slider
+                value={props.balance.value}
+                min={-100}
+                max={100}
+                step={1}
+                onChange={props.balance.onChange}
+                ariaLabel={t('balance')}
+              />
+            </Field>
+          ) : (
+            <Note>{t('balanceMonoNote')}</Note>
+          )}
 
-                <Section label={t('systemSection')}>
-                  <div className="flex flex-col gap-3">
-                    {props.behavior.map((item) => (
-                      <div key={item.id} className="flex flex-col gap-1">
-                        <Toggle label={item.label} checked={item.checked} onChange={item.onChange} />
-                        {item.note && <Note>{item.note}</Note>}
-                      </div>
-                    ))}
-                  </div>
-                </Section>
+          <Note>
+            {t('gainRange')}: {formatDb(props.gainRange.minDb)} ~{' '}
+            {formatDb(props.gainRange.maxDb)} dB · {t('channels')}:{' '}
+            {props.balance.channelCount === 1
+              ? t('mono')
+              : String(props.balance.channelCount)}
+          </Note>
+        </Section>
 
-                <Section label={t('volume')}>
-                  <Field label={`${t('scrollStep')} — ${props.scrollStep}%`}>
-                    <Slider
-                      value={props.scrollStep}
-                      min={1}
-                      max={20}
-                      step={1}
-                      onChange={props.onScrollStep}
-                      ariaLabel={t('scrollStep')}
-                    />
-                  </Field>
+        <Section label={t('monitorSection')}>
+          <Field label={`${t('pollInterval')} — ${props.pollInterval.toFixed(2)} s`}>
+            <Slider
+              value={props.pollInterval}
+              min={0.25}
+              max={5}
+              step={0.25}
+              onChange={props.onPollInterval}
+              ariaLabel={t('pollInterval')}
+            />
+          </Field>
+          <Note>{t('pollIntervalNote')}</Note>
+        </Section>
 
-                  {props.normalizeReference.enabled && (
-                    <Field
-                      label={`${t('referenceVolume')} — ${props.normalizeReference.value}%`}
-                    >
-                      <Slider
-                        value={props.normalizeReference.value}
-                        min={0}
-                        max={100}
-                        step={1}
-                        onChange={props.normalizeReference.onChange}
-                        ariaLabel={t('referenceVolume')}
-                      />
-                    </Field>
-                  )}
+        <Section label={t('configSection')}>
+          <div className="flex flex-wrap gap-2">
+            <ActionButton icon={<DownloadIcon size={13} />} onClick={props.onExport}>
+              {t('exportConfig')}
+            </ActionButton>
+            <ActionButton icon={<UploadIcon size={13} />} onClick={props.onImport}>
+              {t('importConfig')}
+            </ActionButton>
+            <ActionButton
+              icon={<ResetIcon size={13} />}
+              danger={confirmingReset}
+              onClick={() => {
+                if (!confirmingReset) {
+                  setConfirmingReset(true)
+                  return
+                }
+                setConfirmingReset(false)
+                props.onReset()
+              }}
+            >
+              {confirmingReset ? t('resetConfirm') : t('resetConfig')}
+            </ActionButton>
+          </div>
+          <Note>
+            {t('configPath')}: {props.meta.configPath || '—'}
+          </Note>
+        </Section>
 
-                  {props.balance.channelCount >= 2 ? (
-                    <Field
-                      label={`${t('balance')} — ${
-                        props.balance.value === 0
-                          ? t('balanceCenter')
-                          : `${props.balance.value < 0 ? t('balanceLeft') : t('balanceRight')} ${Math.abs(
-                              props.balance.value,
-                            )}`
-                      }`}
-                    >
-                      <Slider
-                        value={props.balance.value}
-                        min={-100}
-                        max={100}
-                        step={1}
-                        onChange={props.balance.onChange}
-                        ariaLabel={t('balance')}
-                      />
-                    </Field>
-                  ) : (
-                    <Note>{t('balanceMonoNote')}</Note>
-                  )}
-
-                  <Note>
-                    {t('gainRange')}: {formatDb(props.gainRange.minDb)} ~{' '}
-                    {formatDb(props.gainRange.maxDb)} dB · {t('channels')}:{' '}
-                    {props.balance.channelCount === 1
-                      ? t('mono')
-                      : String(props.balance.channelCount)}
-                  </Note>
-                </Section>
-
-                <Section label={t('monitorSection')}>
-                  <Field label={`${t('pollInterval')} — ${props.pollInterval.toFixed(2)} s`}>
-                    <Slider
-                      value={props.pollInterval}
-                      min={0.25}
-                      max={5}
-                      step={0.25}
-                      onChange={props.onPollInterval}
-                      ariaLabel={t('pollInterval')}
-                    />
-                  </Field>
-                  <Note>{t('pollIntervalNote')}</Note>
-                </Section>
-
-                <Section label={t('configSection')}>
-                  <div className="flex flex-wrap gap-2">
-                    <ActionButton icon={<DownloadIcon size={13} />} onClick={props.onExport}>
-                      {t('exportConfig')}
-                    </ActionButton>
-                    <ActionButton icon={<UploadIcon size={13} />} onClick={props.onImport}>
-                      {t('importConfig')}
-                    </ActionButton>
-                    <ActionButton
-                      icon={<ResetIcon size={13} />}
-                      danger={confirmingReset}
-                      onClick={() => {
-                        if (!confirmingReset) {
-                          setConfirmingReset(true)
-                          return
-                        }
-                        setConfirmingReset(false)
-                        props.onReset()
-                      }}
-                    >
-                      {confirmingReset ? t('resetConfirm') : t('resetConfig')}
-                    </ActionButton>
-                  </div>
-                  <Note>
-                    {t('configPath')}: {props.meta.configPath || '—'}
-                  </Note>
-                </Section>
-
-                <Section label={t('about')}>
-                  <Note>
-                    {t('version')} {props.meta.version}
-                  </Note>
-                </Section>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+        <Section label={t('about')}>
+          <Note>
+            {t('version')} {props.meta.version}
+          </Note>
+        </Section>
+      </div>
+    </motion.div>
   )
 }
 

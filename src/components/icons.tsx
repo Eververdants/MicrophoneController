@@ -80,6 +80,24 @@ export function ChevronDownIcon({ size = 14, className, strokeWidth = 1.8 }: Ico
   )
 }
 
+// Settings is a full view now, so its entry points read as navigation: forward
+// on the main panel, back on the page itself.
+export function ChevronRightIcon({ size = 14, className, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg {...svgProps(size, className, strokeWidth)}>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  )
+}
+
+export function ArrowLeftIcon({ size = 14, className, strokeWidth = 1.8 }: IconProps) {
+  return (
+    <svg {...svgProps(size, className, strokeWidth)}>
+      <path d="M19 12H5M11 6l-6 6 6 6" />
+    </svg>
+  )
+}
+
 export function CheckIcon({ size = 14, className, strokeWidth = 2 }: IconProps) {
   return (
     <svg {...svgProps(size, className, strokeWidth)}>

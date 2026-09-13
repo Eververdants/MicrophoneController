@@ -6,6 +6,7 @@ import { VolumeSlider } from './components/VolumeSlider'
 import { DeviceSelect } from './components/DeviceSelect'
 import { Settings } from './components/Settings'
 import { TitleBar } from './components/TitleBar'
+import { ChevronRightIcon, SlidersIcon } from './components/icons'
 import { LanguageProvider, useLanguage, LANG_STORAGE_KEY } from './i18n/LanguageContext'
 import { useTheme, type ThemePreference } from './hooks/useTheme'
 import { invoke, useTauriEvent } from './hooks/useTauri'
@@ -14,10 +15,12 @@ import type { AudioStatus, ConfigSnapshot, DeviceInfo, EndpointDetails, InitialS
 const THEME_STORAGE_KEY = 'mc.theme'
 
 // Entrance stagger for the main panel: runs once per launch. Decorative only —
-// transform/opacity, so it never blocks interaction.
+// transform/opacity, so it never blocks interaction. `exit` fades the whole
+// panel when the settings view takes over; children hold their pose during it.
 const panelVariants: Variants = {
   hidden: {},
   show: { transition: { staggerChildren: 0.04 } },
+  exit: { opacity: 0, transition: { duration: 0.15, ease: 'easeOut' } },
 }
 const sectionVariants: Variants = {
   hidden: { opacity: 0, y: 8 },
@@ -119,7 +122,7 @@ interface AppShellProps {
 }
 
 function Shell() {
-  // One owner for the theme: the title bar cycles it and the settings panel
+  // One owner for the theme: the title bar cycles it and the settings view
   // sets it outright, so it cannot live in two places.
   const { preference, setPreference, cycle } = useTheme()
 
@@ -138,6 +141,9 @@ function Shell() {
 
 function AppShell({ themePreference, onThemePreference }: AppShellProps) {
   const { t, setLang } = useLanguage()
+  // The window shows one view at a time: the main panel, or the settings page
+  // that replaces it (no modal overlay — see Settings).
+  const [view, setView] = useState<'main' | 'settings'>('main')
   const [state, setState] = useState<InitialState | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [volume, setVolume] = useState(100)
@@ -260,16 +266,15 @@ function AppShell({ themePreference, onThemePreference }: AppShellProps) {
 
   // Keyboard: Space for mute, arrows for volume. Skipped whenever the key would
   // mean something else — a control that handles it itself (the core is a
-  // button, the sliders take their own arrows) or an open dialog.
+  // button, the sliders take their own arrows) or the settings view, where the
+  // keys belong to that page's controls.
   useEffect(() => {
     if (!state?.platformSupported) return
-    const inDialog = (target: EventTarget | null) =>
-      target instanceof Element && target.closest('[role="dialog"]') !== null
+    if (view !== 'main') return
     const inOwnControl = (target: EventTarget | null, selector: string) =>
       target instanceof Element && target.closest(selector) !== null
 
     const onKey = (event: KeyboardEvent) => {
-      if (inDialog(event.target)) return
       if (event.key === ' ') {
         // Space is how a focused button is activated; acting on it too would
         // toggle mute twice per press.
@@ -286,20 +291,21 @@ function AppShell({ themePreference, onThemePreference }: AppShellProps) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [state?.platformSupported, step, handleToggleMute, nudge])
+  }, [state?.platformSupported, view, step, handleToggleMute, nudge])
 
   // Wheel over the panel adjusts volume — the gesture people reach for, on the
-  // surface where it can actually be delivered (see the note in tray.rs).
+  // surface where it can actually be delivered (see the note in tray.rs). In
+  // the settings view the wheel belongs to the page's own scrolling.
   useEffect(() => {
+    if (view !== 'main') return
     const onWheel = (event: WheelEvent) => {
       if (event.deltaY === 0) return
-      if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return
       event.preventDefault()
       void nudge(event.deltaY < 0 ? step : -step)
     }
     window.addEventListener('wheel', onWheel, { passive: false })
     return () => window.removeEventListener('wheel', onWheel)
-  }, [step, nudge])
+  }, [view, step, nudge])
 
   const handleTargetDevice = useCallback(
     async (id: string | null) => {
@@ -458,93 +464,120 @@ function AppShell({ themePreference, onThemePreference }: AppShellProps) {
       <AnimatePresence>{!state && <ShellSkeleton key="skeleton" />}</AnimatePresence>
 
       {state && (
-        <motion.main
-          variants={panelVariants}
-          initial="hidden"
-          animate="show"
-          // max-w keeps the controls from stretching edge-to-edge on maximized windows.
-          className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-3 overflow-hidden px-6 pb-4 pt-1"
-        >
-          {/* concentric core + volume slider */}
-          <motion.section variants={sectionVariants} className="flex min-h-0 flex-1 items-center justify-center gap-10">
-            <CoreFit>
-              <ConcentricCore
-                muted={muted}
-                volumePercent={volume}
-                peak={peak}
-                meterEnabled={meterAllowed}
-                onToggleMute={handleToggleMute}
-                disabled={!state.platformSupported}
-              />
-            </CoreFit>
-            <div className="flex-none py-2">
-              <VolumeSlider value={volume} onChange={handleVolume} db={volumeDb} disabled={!state.platformSupported} />
-            </div>
-          </motion.section>
+        // `wait`: the outgoing view finishes its fade before the incoming one
+        // mounts, so the two never share (or fight over) the flex column.
+        <AnimatePresence mode="wait">
+          {view === 'main' ? (
+            <motion.main
+              key="main"
+              variants={panelVariants}
+              initial="hidden"
+              animate="show"
+              // max-w keeps the controls from stretching edge-to-edge on maximized windows.
+              className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-3 overflow-hidden px-6 pb-4 pt-1"
+            >
+              {/* concentric core + volume slider */}
+              <motion.section variants={sectionVariants} className="flex min-h-0 flex-1 items-center justify-center gap-10">
+                <CoreFit>
+                  <ConcentricCore
+                    muted={muted}
+                    volumePercent={volume}
+                    peak={peak}
+                    meterEnabled={meterAllowed}
+                    onToggleMute={handleToggleMute}
+                    disabled={!state.platformSupported}
+                  />
+                </CoreFit>
+                <div className="flex-none py-2">
+                  <VolumeSlider value={volume} onChange={handleVolume} db={volumeDb} disabled={!state.platformSupported} />
+                </div>
+              </motion.section>
 
-          {/* status: mute state, plus whoever else is holding the microphone */}
-          <motion.div variants={sectionVariants} className="flex flex-wrap items-center justify-center gap-2">
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.span
-                key={muted ? 'muted' : 'live'}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
-                style={{
-                  background: muted
-                    ? 'color-mix(in srgb, var(--danger) 14%, transparent)'
-                    : 'color-mix(in srgb, var(--success) 14%, transparent)',
-                  color: muted ? 'var(--danger)' : 'var(--success)',
-                }}
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ background: muted ? 'var(--danger)' : 'var(--success)' }}
-                />
-                {muted ? t('mute') : t('unmute')}
-              </motion.span>
-            </AnimatePresence>
+              {/* status: mute state, plus whoever else is holding the microphone */}
+              <motion.div variants={sectionVariants} className="flex flex-wrap items-center justify-center gap-2">
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.span
+                    key={muted ? 'muted' : 'live'}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+                    style={{
+                      background: muted
+                        ? 'color-mix(in srgb, var(--danger) 14%, transparent)'
+                        : 'color-mix(in srgb, var(--success) 14%, transparent)',
+                      color: muted ? 'var(--danger)' : 'var(--success)',
+                    }}
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: muted ? 'var(--danger)' : 'var(--success)' }}
+                    />
+                    {muted ? t('mute') : t('unmute')}
+                  </motion.span>
+                </AnimatePresence>
 
-            {/* A device that looks muted and one another app is recording from
-                are very different situations, and neither the flag above nor
-                the level meter tells them apart. */}
-            {inUse.length > 0 && (
-              <motion.span
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                title={t('inUseHint')}
-                className="inline-flex max-w-[16rem] items-center gap-1.5 rounded-full px-3 py-1 text-xs"
-                style={{ background: 'var(--accent-soft)', color: 'var(--fg-muted)' }}
-              >
-                <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--fg)' }} />
-                <span className="truncate">
-                  {inUse[0]}
-                  {inUse.length > 1 ? ` +${inUse.length - 1}` : ''} · {t('inUse')}
+                {/* A device that looks muted and one another app is recording from
+                    are very different situations, and neither the flag above nor
+                    the level meter tells them apart. */}
+                {inUse.length > 0 && (
+                  <motion.span
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    title={t('inUseHint')}
+                    className="inline-flex max-w-[16rem] items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+                    style={{ background: 'var(--accent-soft)', color: 'var(--fg-muted)' }}
+                  >
+                    <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--fg)' }} />
+                    <span className="truncate">
+                      {inUse[0]}
+                      {inUse.length > 1 ? ` +${inUse.length - 1}` : ''} · {t('inUse')}
+                    </span>
+                  </motion.span>
+                )}
+              </motion.div>
+
+              {/* device */}
+              <motion.section variants={sectionVariants} className="flex flex-col gap-1.5">
+                <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                  {t('device')}
                 </span>
-              </motion.span>
-            )}
-          </motion.div>
+                <DeviceSelect
+                  devices={devices}
+                  selectedId={state.selectedDeviceId}
+                  onChange={handleTargetDevice}
+                  onSetDefault={handleSetDefault}
+                  disabled={!state.platformSupported}
+                />
+              </motion.section>
 
-          {/* device */}
-          <motion.section variants={sectionVariants} className="flex flex-col gap-1.5">
-            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-              {t('device')}
-            </span>
-            <DeviceSelect
-              devices={devices}
-              selectedId={state.selectedDeviceId}
-              onChange={handleTargetDevice}
-              onSetDefault={handleSetDefault}
-              disabled={!state.platformSupported}
-            />
-          </motion.section>
-
-          {/* settings */}
-          <motion.section variants={sectionVariants}>
+              {/* settings entry: the page replaces the panel instead of
+                  overlaying it, so neither view ever needs the window to scroll */}
+              <motion.section variants={sectionVariants}>
+                <motion.button
+                  type="button"
+                  onClick={() => setView('settings')}
+                  whileTap={{ scale: 0.99 }}
+                  transition={{ duration: 0.12 }}
+                  className="flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm outline-none hover:bg-[var(--accent-soft)]"
+                  style={{ color: 'var(--fg)' }}
+                >
+                  <span className="flex items-center gap-2">
+                    <SlidersIcon size={15} />
+                    {t('settings')}
+                  </span>
+                  <span style={{ color: 'var(--fg-muted)' }}>
+                    <ChevronRightIcon size={14} />
+                  </span>
+                </motion.button>
+              </motion.section>
+            </motion.main>
+          ) : (
             <Settings
+              key="settings"
+              onBack={() => setView('main')}
               hotkey={{ value: state.hotkey, error: hotkeyError, onChange: handleHotkey }}
               themePreference={themePreference}
               onThemePreference={onThemePreference}
@@ -623,8 +656,8 @@ function AppShell({ themePreference, onThemePreference }: AppShellProps) {
               onImport={handleImport}
               onReset={handleReset}
             />
-          </motion.section>
-        </motion.main>
+          )}
+        </AnimatePresence>
       )}
 
       {/* Transient feedback. Positioned rather than laid out, so a message never

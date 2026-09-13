@@ -218,7 +218,8 @@ function AppShell({ themePreference, onThemePreference }: AppShellProps) {
   const meterAllowed = Boolean(state?.platformSupported) && Boolean(state?.showMeter)
   useEffect(() => {
     invoke('set_meter_enabled', { enabled: meterAllowed }).catch(() => {})
-    if (!meterAllowed) setPeak(0)
+    // No peak reset needed here: the ring only renders while metering, and the
+    // core zeroes its own target the moment sampling stops.
     return () => {
       invoke('set_meter_enabled', { enabled: false }).catch(() => {})
     }
@@ -276,7 +277,9 @@ function AppShell({ themePreference, onThemePreference }: AppShellProps) {
         event.preventDefault()
         void handleToggleMute()
       } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-        if (inOwnControl(event.target, '[role="slider"]')) return
+        // Sliders take their own arrows; the device select does too (open and
+        // navigate the list), and nudging volume underneath it would be a bug.
+        if (inOwnControl(event.target, '[role="slider"], [aria-haspopup="listbox"]')) return
         event.preventDefault()
         void nudge(event.key === 'ArrowUp' ? step : -step)
       }
@@ -382,8 +385,14 @@ function AppShell({ themePreference, onThemePreference }: AppShellProps) {
       onThemePreference(config.theme)
       setLang(config.language === 'en' ? 'en' : 'zh-CN')
       setHotkeyError(null)
+      // An imported config may pin a different endpoint. Re-selecting it is
+      // what pulls that endpoint's own state (mute, volume, gain range,
+      // channel count) into the UI — patching `selectedDeviceId` alone would
+      // leave the previous device's numbers on screen while the backend
+      // already acts on the new one.
+      void handleTargetDevice(config.selectedDeviceId)
     },
-    [patch, onThemePreference, setLang],
+    [patch, onThemePreference, setLang, handleTargetDevice],
   )
 
   const handleExport = useCallback(async () => {

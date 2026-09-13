@@ -57,16 +57,18 @@ export function Settings(props: SettingsProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  // A confirmation that survives a reopen would be a trap.
-  useEffect(() => {
-    if (!open) setConfirmingReset(false)
-  }, [open])
+  const openSettings = () => {
+    // A confirmation that survives a reopen would be a trap, so it is cleared
+    // on the way in rather than watched for the close.
+    setConfirmingReset(false)
+    setOpen(true)
+  }
 
   return (
     <>
       <motion.button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openSettings}
         whileTap={{ scale: 0.98 }}
         transition={{ duration: 0.12 }}
         className="flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm outline-none hover:bg-[var(--accent-soft)]"

@@ -89,9 +89,14 @@ jobs:
           tauriScript: pnpm run tauri
 
   # ============================================================
-  # Job 2: Build website (from `website` branch)
+  # Job 2: Build website (from `website` branch) — main pushes only
   # ============================================================
+  # The github-pages environment only permits deployments from the main
+  # branch (default protection rule), so tag runs must not deploy. A tag
+  # never changes the website anyway: its source lives on the website
+  # branch and ships with every main push.
   build-website:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       artifact_id: ${{ steps.upload.outputs.artifact_id }}
@@ -123,7 +128,10 @@ jobs:
   # ============================================================
   deploy-pages:
     needs: build-website
-    if: always() && !cancelled() && needs.build-website.result == 'success'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      always() && !cancelled() &&
+      needs.build-website.result == 'success'
     runs-on: ubuntu-latest
     # A tag push and a main push can both land a deploy in the same minute;
     # the Pages service rejects overlapping deployments and the loser dies

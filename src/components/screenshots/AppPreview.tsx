@@ -1,42 +1,32 @@
 import { useLanguage } from '../../i18n/LanguageContext'
 import styles from './AppPreview.module.css'
 
+// Static replica of the v1.0.0 app window: title bar, concentric mute core
+// with the live level ring, vertical volume slider, status pills, device row
+// and the settings entry. Colours are the app's own dark palette — a snapshot
+// of the real product, so it does not follow the site theme.
 const labels: Record<string, Record<string, string>> = {
-  input: { en: 'input', 'zh-CN': '输入' },
-  ch1: { en: 'ch 1', 'zh-CN': '通道 1' },
-  mute: { en: 'mute', 'zh-CN': '静音' },
-  on: { en: 'on', 'zh-CN': '开' },
-  onStatus: { en: 'on', 'zh-CN': '开启' },
-  level: { en: 'level', 'zh-CN': '音量' },
-  vu: { en: 'vu', 'zh-CN': '电平' },
-  zeroMute: { en: 'zero=mute', 'zh-CN': '归零=静音' },
-  norm: { en: 'norm', 'zh-CN': '归一' },
-  patch: { en: 'patch', 'zh-CN': '跳线' },
-  src: { en: 'src', 'zh-CN': '源' },
-  key: { en: 'key', 'zh-CN': '快捷键' },
-  bind: { en: 'bind', 'zh-CN': '绑定' },
-  set: { en: 'set', 'zh-CN': '设置键' },
-  config: { en: 'config', 'zh-CN': '配置' },
-  sys: { en: 'sys', 'zh-CN': '系统' },
-  startHidden: { en: 'start hidden', 'zh-CN': '启动隐藏' },
-  hideOnClose: { en: 'hide on close', 'zh-CN': '关闭隐藏' },
-  lang: { en: 'lang', 'zh-CN': '语言' },
-  log: { en: 'log', 'zh-CN': '日志' },
-  monitor: { en: 'monitor', 'zh-CN': '监控' },
-  logAppStarted: { en: 'App started', 'zh-CN': '应用已启动' },
-  logDevice: { en: 'Device: Microphone Array', 'zh-CN': '设备：麦克风阵列' },
-  logHotkey: { en: 'Hotkey F8 registered', 'zh-CN': '快捷键 F8 已注册' },
-  logMuted: { en: 'Muted by hotkey', 'zh-CN': '已通过快捷键静音' },
-  logUnmuted: { en: 'Unmuted by app', 'zh-CN': '已通过应用开启' },
-  logVolume: { en: 'Volume set to 70%', 'zh-CN': '音量已设为 70%' },
-  logDeviceChanged: { en: 'Device changed to High Definition Audio Device', 'zh-CN': '设备已切换至高清晰音频设备' },
-  tip: { en: 'hotkey active in background', 'zh-CN': '快捷键后台生效' },
-  brand: { en: 'mic·controller · mk-1', 'zh-CN': 'mic·controller · mk-1' },
+  title: { en: 'MicrophoneController', 'zh-CN': 'MicrophoneController' },
+  live: { en: 'on air', 'zh-CN': '正在收音' },
+  muted: { en: 'muted', 'zh-CN': '已静音' },
+  inUse: { en: 'Discord · in use', 'zh-CN': 'Discord · 使用中' },
+  device: { en: 'device', 'zh-CN': '设备' },
+  deviceName: {
+    en: 'Microphone (2- High Definition Audio Device)',
+    'zh-CN': '麦克风 (2- High Definition Audio Device)',
+  },
+  pinned: { en: 'pinned to this endpoint', 'zh-CN': '已固定到该设备' },
+  setAsDefault: { en: 'set as default', 'zh-CN': '设为默认' },
+  settings: { en: 'Settings', 'zh-CN': '设置' },
 }
 
 function _(key: string, lang: string): string {
   return labels[key]?.[lang] ?? labels[key]?.en ?? key
 }
+
+// Level ring geometry mirrors the app: r=86 of a 200 viewBox, 38% swept.
+const R = 86
+const C = 2 * Math.PI * R
 
 export default function AppPreview() {
   const { lang } = useLanguage()
@@ -44,173 +34,105 @@ export default function AppPreview() {
   return (
     <div className={styles.wrapper}>
       <div className={styles.app}>
-        <div className={styles.rackRail} />
+        <div className={styles.titleBar}>
+          <span className={styles.tbIcon} />
+          <span className={styles.tbTitle}>{_('title', lang)}</span>
+          <span className={styles.tbTools}>
+            <span className={styles.tbLang}>中文</span>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+            </svg>
+          </span>
+          <span className={styles.winBtns}>
+            <span className={styles.winBtn} />
+            <span className={styles.winBtn} />
+            <span className={`${styles.winBtn} ${styles.winClose}`} />
+          </span>
+        </div>
 
-        <div className={styles.module}>
-          <div className={styles.moduleLabel}>
-            <span className={styles.labelText}>{_('input', lang)}</span>
-            <span className={styles.labelDivider} />
-            <span className={styles.labelChannel}>{_('ch1', lang)}</span>
-          </div>
-          <div className={styles.statusBody}>
-            <div className={styles.statusVisual}>
-              <div className={styles.vuStrip}>
-                {[20,30,40,50,65,80,90,100].map((h, i) => (
-                  <div
-                    key={i}
-                    className={`${styles.vuSegment} ${i < 5 ? styles.vuActive : ''} ${i === 7 ? styles.vuClip : ''}`}
-                    style={{ height: `${h}%` }}
+        <div className={styles.body}>
+          <div className={styles.stageRow}>
+            <div className={styles.core}>
+              <span className={styles.ringOuter} />
+              <span className={styles.ringMid} />
+              <svg viewBox="0 0 200 200" className={styles.levelRing} aria-hidden>
+                <g transform="rotate(-90 100 100)">
+                  <circle cx="100" cy="100" r={R} fill="none" stroke="var(--mc-border)" strokeWidth="3" />
+                  <circle
+                    cx="100"
+                    cy="100"
+                    r={R}
+                    fill="none"
+                    stroke="var(--mc-success)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={C}
+                    strokeDashoffset={C * 0.62}
                   />
-                ))}
-              </div>
-              <div className={styles.statusMeta}>
-                <div className={`${styles.pilotLed} ${styles.pilotOn}`} />
-                <div className={styles.statusLabelGroup}>
-                  <span className={styles.statusLabel}>{_('mute', lang)}</span>
-                  <span className={styles.statusValue}>{_('onStatus', lang)}</span>
-                </div>
-              </div>
-            </div>
-            <div className={styles.statusControls}>
-              <button className={`${styles.switchToggle} ${styles.switchActive}`} type="button" tabIndex={-1}>
-                <span className={styles.switchTrack}>
-                  <span className={styles.switchThumb} />
-                </span>
-                <span className={styles.switchLabel}>{_('on', lang)}</span>
-              </button>
-              <button className={`${styles.btnRack} ${styles.btnRackMute}`} type="button" tabIndex={-1}>
-                <span className={styles.btnRackInner}>{_('mute', lang)}</span>
-              </button>
-              <button className={`${styles.btnRack} ${styles.btnRackUnmute}`} type="button" tabIndex={-1}>
-                <span className={styles.btnRackInner}>{_('on', lang)}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.module}>
-          <div className={styles.moduleLabel}>
-            <span className={styles.labelText}>{_('level', lang)}</span>
-            <span className={styles.labelDivider} />
-            <span className={styles.labelChannel}>{_('vu', lang)}</span>
-          </div>
-          <div className={styles.volumeBody}>
-            <div className={styles.volumeHeader}>
-              <span className={styles.volumeReading}>-6 dB</span>
-              <div className={styles.volumeScale}>
-                <span>-∞</span><span>-12</span><span>-6</span><span>-2</span><span>0</span>
-              </div>
-            </div>
-            <div className={styles.volumeTrackWrap}>
-              <div className={styles.volumeTrackBg} />
-              <input type="range" className={styles.volumeSlider} min="0" max="100" value="70" readOnly tabIndex={-1} />
-              <div className={styles.volumeMarkers}>
-                <span /><span /><span /><span /><span />
-              </div>
-            </div>
-            <div className={styles.volumeFooter}>
-              <label className={styles.tieLabel}>
-                <input type="checkbox" defaultChecked tabIndex={-1} />
-                <span className={styles.tieSwitch} />
-                <span className={styles.tieText}>{_('zeroMute', lang)}</span>
-              </label>
-              <label className={`${styles.tieLabel} ${styles.normToggle}`}>
-                <input type="checkbox" tabIndex={-1} />
-                <span className={`${styles.tieSwitch} ${styles.tieSwitchNorm}`} />
-                <span className={styles.tieText}>{_('norm', lang)}</span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.patchRow}>
-          <div className={`${styles.module} ${styles.modulePatch}`}>
-            <div className={styles.moduleLabel}>
-              <span className={styles.labelText}>{_('patch', lang)}</span>
-              <span className={styles.labelDivider} />
-              <span className={styles.labelChannel}>{_('src', lang)}</span>
-            </div>
-            <div className={styles.patchBody}>
-              <select className={styles.patchSelect} tabIndex={-1}>
-                <option>Microphone (2- High Definition Audio Device)</option>
-              </select>
-              <button className={styles.btnPatch} type="button" tabIndex={-1} title="scan">
-                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
-                  <path d="M13 1.5V5h-3.5M3 14.5V11h3.5" />
+                </g>
+              </svg>
+              <span className={styles.coreInner}>
+                <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="var(--mc-fg)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="3" width="6" height="11" rx="3" />
+                  <path d="M5 11a7 7 0 0 0 14 0" />
+                  <path d="M12 18v3" />
                 </svg>
-              </button>
+              </span>
             </div>
-          </div>
 
-          <div className={`${styles.module} ${styles.modulePatch}`}>
-            <div className={styles.moduleLabel}>
-              <span className={styles.labelText}>{_('key', lang)}</span>
-              <span className={styles.labelDivider} />
-              <span className={styles.labelChannel}>{_('bind', lang)}</span>
-            </div>
-            <div className={styles.patchBody}>
-              <input type="text" className={styles.keyInput} value="F8" readOnly tabIndex={-1} />
-              <button className={`${styles.btnPatch} ${styles.btnPatchApply}`} type="button" tabIndex={-1}>
-                <span>{_('set', lang)}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.module}>
-          <div className={styles.moduleLabel}>
-            <span className={styles.labelText}>{_('config', lang)}</span>
-            <span className={styles.labelDivider} />
-            <span className={styles.labelChannel}>{_('sys', lang)}</span>
-          </div>
-          <div className={styles.settingsBody}>
-            <div className={styles.settingsRow}>
-              <label className={styles.tieLabel}>
-                <input type="checkbox" tabIndex={-1} />
-                <span className={styles.tieSwitch} />
-                <span className={styles.tieText}>{_('startHidden', lang)}</span>
-              </label>
-              <label className={styles.tieLabel}>
-                <input type="checkbox" defaultChecked tabIndex={-1} />
-                <span className={styles.tieSwitch} />
-                <span className={styles.tieText}>{_('hideOnClose', lang)}</span>
-              </label>
-              <div className={styles.langGroup}>
-                <span className={styles.langIndicator}>{_('lang', lang)}</span>
-                <select className={styles.langSelect} tabIndex={-1}>
-                  <option value="zh-CN">CN</option>
-                  <option value="en">EN</option>
-                </select>
+            <div className={styles.sliderCol}>
+              <div className={styles.track}>
+                <div className={styles.fill} />
+                <div className={styles.thumb} />
               </div>
+              <span className={styles.readout}>70</span>
+              <span className={styles.readoutDb}>-6.0 dB</span>
             </div>
           </div>
-        </div>
 
-        <div className={`${styles.module} ${styles.moduleLog}`}>
-          <div className={styles.moduleLabel}>
-            <span className={styles.labelText}>{_('log', lang)}</span>
-            <span className={styles.labelDivider} />
-            <span className={styles.labelChannel}>{_('monitor', lang)}</span>
+          <div className={styles.pills}>
+            <span className={`${styles.pill} ${styles.pillLive}`}>
+              <span className={styles.dot} />
+              {_('live', lang)}
+            </span>
+            <span className={`${styles.pill} ${styles.pillUse}`}>{_('inUse', lang)}</span>
           </div>
-          <div className={styles.logBody}>
-            <div className={styles.logScroll}>
-              <div className={styles.historyEntry}>{_('logAppStarted', lang)}</div>
-              <div className={styles.historyEntry}>{_('logDevice', lang)}</div>
-              <div className={styles.historyEntry}>{_('logHotkey', lang)}</div>
-              <div className={styles.historyEntry}>{_('logMuted', lang)}</div>
-              <div className={styles.historyEntry}>{_('logUnmuted', lang)}</div>
-              <div className={styles.historyEntry}>{_('logVolume', lang)}</div>
-              <div className={styles.historyEntry}>{_('logDeviceChanged', lang)}</div>
+
+          <div className={styles.deviceRow}>
+            <span className={styles.label}>{_('device', lang)}</span>
+            <div className={styles.selectBox}>
+              <span className={styles.selectText}>{_('deviceName', lang)}</span>
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+            <div className={styles.noteRow}>
+              <span className={styles.note}>{_('pinned', lang)}</span>
+              <span className={styles.setDefault}>{_('setAsDefault', lang)}</span>
             </div>
           </div>
+
+          <div className={styles.settingsRow}>
+            <span className={styles.settingsLeft}>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="21" x2="4" y2="14" />
+                <line x1="4" y1="10" x2="4" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12" y2="3" />
+                <line x1="20" y1="21" x2="20" y2="16" />
+                <line x1="20" y1="12" x2="20" y2="3" />
+                <line x1="1" y1="14" x2="7" y2="14" />
+                <line x1="9" y1="8" x2="15" y2="8" />
+                <line x1="17" y1="16" x2="23" y2="16" />
+              </svg>
+              {_('settings', lang)}
+            </span>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="var(--mc-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </div>
         </div>
-
-        <p className={styles.rackTip}>{_('tip', lang)}</p>
-
-        <div className={`${styles.rackRail} ${styles.rackRailBottom}`} />
-
-        <div className={styles.rackBrand}>{_('brand', lang)}</div>
       </div>
     </div>
   )

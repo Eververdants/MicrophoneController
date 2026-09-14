@@ -13,7 +13,7 @@ use super::win::resolve_device;
 use windows::core::Interface;
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::Media::Audio::{
-    IAudioSessionControl2, IAudioSessionManager2, AudioSessionStateActive,
+    AudioSessionStateActive, IAudioSessionControl2, IAudioSessionManager2,
 };
 use windows::Win32::System::Com::CLSCTX_ALL;
 use windows::Win32::System::Threading::{

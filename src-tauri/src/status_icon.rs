@@ -69,7 +69,11 @@ fn sample(x: f32, y: f32, muted: bool) -> Option<[f32; 3]> {
         // The gap is drawn first: it cuts the glyph so the slash stays visible
         // against a same-coloured microphone.
         if dist <= SLASH_GAP {
-            return if dist <= SLASH_RADIUS { Some(SLASH) } else { None };
+            return if dist <= SLASH_RADIUS {
+                Some(SLASH)
+            } else {
+                None
+            };
         }
     }
     if microphone(x, y) {

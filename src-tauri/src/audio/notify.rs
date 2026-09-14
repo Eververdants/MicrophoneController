@@ -20,7 +20,9 @@ use windows::Win32::Media::Audio::{
     EDataFlow, ERole, IMMDeviceEnumerator, IMMNotificationClient, IMMNotificationClient_Impl,
     MMDeviceEnumerator, DEVICE_STATE,
 };
-use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED,
+};
 
 /// How long to wait for the notification burst to settle. A single plug event
 /// arrives as several callbacks; re-enumerating per callback would activate
@@ -52,7 +54,11 @@ impl DeviceWatcher {
 }
 
 impl IMMNotificationClient_Impl for DeviceWatcher_Impl {
-    fn OnDeviceStateChanged(&self, _device_id: &PCWSTR, _new_state: DEVICE_STATE) -> windows::core::Result<()> {
+    fn OnDeviceStateChanged(
+        &self,
+        _device_id: &PCWSTR,
+        _new_state: DEVICE_STATE,
+    ) -> windows::core::Result<()> {
         self.signal();
         Ok(())
     }

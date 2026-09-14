@@ -13,4 +13,3 @@ pub fn osd_ready(app: AppHandle) -> Result<(), String> {
     crate::osd::replay(&app);
     Ok(())
 }
-

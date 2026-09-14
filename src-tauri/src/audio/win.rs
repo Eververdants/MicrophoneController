@@ -20,7 +20,8 @@ use windows::Win32::Media::Audio::{
     IMMDeviceEnumerator, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
 };
 use windows::Win32::System::Com::{
-    CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_APARTMENTTHREADED, STGM_READ,
+    CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
+    STGM_READ,
 };
 
 thread_local! {
@@ -69,8 +70,7 @@ pub(super) fn resolve_device(device_id: Option<&str>) -> Result<IMMDevice, Strin
     match device_id {
         Some(id) => {
             let wide = HSTRING::from(id);
-            unsafe { enumr.GetDevice(PCWSTR(wide.as_ptr())) }
-                .map_err(|e| format!("GetDevice: {e}"))
+            unsafe { enumr.GetDevice(PCWSTR(wide.as_ptr())) }.map_err(|e| format!("GetDevice: {e}"))
         }
         None => unsafe { enumr.GetDefaultAudioEndpoint(eCapture, eConsole) }
             .map_err(|e| format!("GetDefaultAudioEndpoint: {e}")),
@@ -139,8 +139,9 @@ pub fn list_capture_devices() -> Result<Vec<DeviceInfo>, String> {
     let default_console = default_device_id(&enumr, eConsole);
     let default_comms = default_device_id(&enumr, eCommunications);
 
-    let collection: IMMDeviceCollection = unsafe { enumr.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE) }
-        .map_err(|e| format!("EnumAudioEndpoints: {e}"))?;
+    let collection: IMMDeviceCollection =
+        unsafe { enumr.EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE) }
+            .map_err(|e| format!("EnumAudioEndpoints: {e}"))?;
     let count = unsafe { collection.GetCount() }.map_err(|e| format!("GetCount: {e}"))?;
 
     let mut out = Vec::new();
@@ -153,10 +154,11 @@ pub fn list_capture_devices() -> Result<Vec<DeviceInfo>, String> {
         };
         // An endpoint that refuses activation is still listed — it is plugged
         // in — but reports neutral state instead of dropping out of the list.
-        let (muted, volume_percent) = unsafe { dev.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) }
-            .ok()
-            .and_then(|ep| read_endpoint_state(&ep).ok())
-            .unwrap_or((false, 100));
+        let (muted, volume_percent) =
+            unsafe { dev.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None) }
+                .ok()
+                .and_then(|ep| read_endpoint_state(&ep).ok())
+                .unwrap_or((false, 100));
 
         out.push(DeviceInfo {
             is_default: default_console.as_deref() == Some(id.as_str()),
@@ -334,7 +336,11 @@ pub fn set_balance(device_id: Option<&str>, balance: i64) -> Result<i64, String>
     let (left, right) = channels_for_balance(balance);
     let clamped = balance.clamp(-100, 100);
     with_endpoint(device_id, |ep| unsafe {
-        if ep.GetChannelCount().map_err(|e| format!("GetChannelCount: {e}"))? < 2 {
+        if ep
+            .GetChannelCount()
+            .map_err(|e| format!("GetChannelCount: {e}"))?
+            < 2
+        {
             return Ok(0);
         }
         ep.SetChannelVolumeLevelScalar(0, left, std::ptr::null())

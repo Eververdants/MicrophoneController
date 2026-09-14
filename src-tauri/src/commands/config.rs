@@ -40,7 +40,11 @@ pub fn set_language(
 }
 
 #[tauri::command(async)]
-pub fn set_theme(app: AppHandle, value: String, config: State<'_, ConfigState>) -> Result<(), String> {
+pub fn set_theme(
+    app: AppHandle,
+    value: String,
+    config: State<'_, ConfigState>,
+) -> Result<(), String> {
     config.update(&app, |c| c.theme = value)
 }
 
@@ -162,7 +166,8 @@ pub fn import_config(
     config: State<'_, ConfigState>,
     audio: State<'_, AudioController>,
 ) -> Result<AppConfig, String> {
-    let json = std::fs::read_to_string(&path).map_err(|e| format!("could not read the file: {e}"))?;
+    let json =
+        std::fs::read_to_string(&path).map_err(|e| format!("could not read the file: {e}"))?;
     let parsed: AppConfig =
         serde_json::from_str(&json).map_err(|e| format!("not a valid config file: {e}"))?;
     let applied = config.replace(&app, parsed)?;

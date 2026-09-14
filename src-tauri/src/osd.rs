@@ -97,9 +97,8 @@ pub fn show(app: &AppHandle, payload: OsdPayload) {
 /// silently do nothing.
 pub fn replay(app: &AppHandle) {
     let payload = LAST.lock().ok().and_then(|last| {
-        last.as_ref().and_then(|(payload, at)| {
-            (at.elapsed() < VISIBLE).then(|| payload.clone())
-        })
+        last.as_ref()
+            .and_then(|(payload, at)| (at.elapsed() < VISIBLE).then(|| payload.clone()))
     });
     if let Some(payload) = payload {
         let _ = app.emit_to(OSD_LABEL, "osd:show", payload);

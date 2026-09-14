@@ -28,7 +28,10 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         // No launch arguments: whether to start hidden is the app's own
         // "start minimized to tray" setting, not a flag baked into the entry.
-        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()

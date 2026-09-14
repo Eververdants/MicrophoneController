@@ -105,10 +105,11 @@ pub fn build(app: &AppHandle) -> Result<(), String> {
         MenuItem::with_id(app, ID_MUTE, labels.mute, true, None::<&str>).map_err(to_string)?;
     // The step is deliberately not in the label: it is user-configurable, and a
     // stale "Volume + 5%" would be worse than no number at all.
-    let volume_up =
-        MenuItem::with_id(app, ID_VOLUME_UP, labels.volume_up, true, None::<&str>).map_err(to_string)?;
-    let volume_down = MenuItem::with_id(app, ID_VOLUME_DOWN, labels.volume_down, true, None::<&str>)
+    let volume_up = MenuItem::with_id(app, ID_VOLUME_UP, labels.volume_up, true, None::<&str>)
         .map_err(to_string)?;
+    let volume_down =
+        MenuItem::with_id(app, ID_VOLUME_DOWN, labels.volume_down, true, None::<&str>)
+            .map_err(to_string)?;
     let show_item =
         MenuItem::with_id(app, ID_SHOW, labels.show, true, None::<&str>).map_err(to_string)?;
     let hide_item =

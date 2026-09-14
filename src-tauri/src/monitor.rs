@@ -55,7 +55,10 @@ pub fn set_meter_enabled(app: &AppHandle, enabled: bool) {
         Err(_) => return,
     };
     if inner.meter_enabled != enabled {
-        log::info!("level meter sampling {}", if enabled { "on" } else { "off" });
+        log::info!(
+            "level meter sampling {}",
+            if enabled { "on" } else { "off" }
+        );
     }
     inner.meter_enabled = enabled;
 }
@@ -111,7 +114,8 @@ fn spawn_state_monitor(app: AppHandle) {
             let (device, _) = target(&app);
             let controller = app.state::<AudioController>();
 
-            if let Ok((muted, volume_percent, volume_db)) = audio_win::read_state(device.as_deref()) {
+            if let Ok((muted, volume_percent, volume_db)) = audio_win::read_state(device.as_deref())
+            {
                 // Peek without recording, so `publish` below stays the only
                 // place that writes the last-known state.
                 let moved = controller

@@ -20,7 +20,7 @@
 // definition, and renaming them to satisfy the lint would break the vtable.
 #![allow(non_snake_case)]
 
-use windows::core::{interface, HSTRING, HRESULT, IUnknown, IUnknown_Vtbl, PCWSTR};
+use windows::core::{interface, IUnknown, IUnknown_Vtbl, HRESULT, HSTRING, PCWSTR};
 use windows::Win32::Media::Audio::{eCommunications, eConsole, eMultimedia, ERole};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
 

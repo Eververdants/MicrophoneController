@@ -45,8 +45,8 @@ fn publish(app: &AppHandle, status: Status) {
 pub fn toggle_mute(app: &AppHandle, feedback: Feedback) -> Result<bool, String> {
     let ctx = ctx(app);
     let muted = audio_win::toggle_mute(ctx.target.as_deref())?;
-    let (_, volume_percent, volume_db) = audio_win::read_state(ctx.target.as_deref())
-        .unwrap_or((muted, 100, -96.0));
+    let (_, volume_percent, volume_db) =
+        audio_win::read_state(ctx.target.as_deref()).unwrap_or((muted, 100, -96.0));
 
     publish(
         app,
@@ -56,15 +56,22 @@ pub fn toggle_mute(app: &AppHandle, feedback: Feedback) -> Result<bool, String> 
             volume_db,
         },
     );
-    show_overlay(app, &ctx, osd::OsdKind::Mute, muted, volume_percent, feedback);
+    show_overlay(
+        app,
+        &ctx,
+        osd::OsdKind::Mute,
+        muted,
+        volume_percent,
+        feedback,
+    );
     Ok(muted)
 }
 
 pub fn set_mute(app: &AppHandle, muted: bool, feedback: Feedback) -> Result<(), String> {
     let ctx = ctx(app);
     audio_win::set_mute(ctx.target.as_deref(), muted)?;
-    let (_, volume_percent, volume_db) = audio_win::read_state(ctx.target.as_deref())
-        .unwrap_or((muted, 100, -96.0));
+    let (_, volume_percent, volume_db) =
+        audio_win::read_state(ctx.target.as_deref()).unwrap_or((muted, 100, -96.0));
 
     publish(
         app,
@@ -74,7 +81,14 @@ pub fn set_mute(app: &AppHandle, muted: bool, feedback: Feedback) -> Result<(), 
             volume_db,
         },
     );
-    show_overlay(app, &ctx, osd::OsdKind::Mute, muted, volume_percent, feedback);
+    show_overlay(
+        app,
+        &ctx,
+        osd::OsdKind::Mute,
+        muted,
+        volume_percent,
+        feedback,
+    );
     Ok(())
 }
 
@@ -113,7 +127,12 @@ pub fn nudge_volume(app: &AppHandle, delta: i64, feedback: Feedback) -> Result<i
     let ctx = ctx(app);
     let current = audio_win::read_state(ctx.target.as_deref())
         .map(|(_, percent, _)| percent)
-        .unwrap_or_else(|_| app.state::<ConfigState>().get().map(|c| c.last_volume_percent).unwrap_or(100));
+        .unwrap_or_else(|_| {
+            app.state::<ConfigState>()
+                .get()
+                .map(|c| c.last_volume_percent)
+                .unwrap_or(100)
+        });
     let next = (current + delta).clamp(0, 100);
     set_volume(app, next, feedback)?;
     Ok(next)

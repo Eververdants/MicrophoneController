@@ -193,7 +193,10 @@ impl AudioController {
 
     /// Read the shared state without holding the lock across the call site.
     pub fn snapshot_inner(&self) -> Result<AudioInner, String> {
-        self.inner.lock().map(|g| g.clone()).map_err(|e| e.to_string())
+        self.inner
+            .lock()
+            .map(|g| g.clone())
+            .map_err(|e| e.to_string())
     }
 }
 

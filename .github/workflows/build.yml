@@ -80,7 +80,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: ${{ github.ref_name }}
+          releaseName: 'MicrophoneController ${{ github.ref_name }}'
           releaseBody: 'See the assets to download and install this version.'
           releaseDraft: false
           prerelease: false
@@ -93,6 +93,8 @@ jobs:
   # ============================================================
   build-website:
     runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact_id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -111,6 +113,7 @@ jobs:
         run: npm run build
 
       - name: Upload Pages artifact
+        id: upload
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -122,6 +125,12 @@ jobs:
     needs: build-website
     if: always() && !cancelled() && needs.build-website.result == 'success'
     runs-on: ubuntu-latest
+    # A tag push and a main push can both land a deploy in the same minute;
+    # the Pages service rejects overlapping deployments and the loser dies
+    # with a BlobNotFound on the artifact blob. Serialize them instead.
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -129,3 +138,8 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Pin the exact artifact uploaded by this run: deploying by name
+          # resolves to the oldest "github-pages" artifact when a run is
+          # retried, whose blob no longer exists.
+          artifact_id: ${{ needs.build-website.outputs.artifact_id }}
